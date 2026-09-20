@@ -25,7 +25,7 @@ export const GET: APIRoute = apiHandler(async ({ params, url, locals }) => {
 
   const inline = url.searchParams.get('inline') === '1';
   const headers = new Headers();
-  headers.set('content-type', object.httpMetadata?.contentType || row.content_type || 'application/octet-stream');
+  headers.set('content-type', object.contentType || row.content_type || 'application/octet-stream');
   headers.set('content-length', String(object.size));
   headers.set('cache-control', 'private, max-age=86400');
   headers.set('content-disposition', inline ? 'inline' : `attachment; filename="${encodeURIComponent(row.filename)}"`);

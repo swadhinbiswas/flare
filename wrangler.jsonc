@@ -17,17 +17,21 @@
   "vars": {
     // The verified Resend sending/receiving domain (root or subdomain).
     "RESEND_INBOUND_DOMAIN": "swadhin.cv",
-    // Display name used in the From header for outbound mail.
+    // Display name used in the From header when a profile has no name set.
     "MAIL_FROM_NAME": "RFLARE",
     // Public URL of this app, used for links inside notification emails.
-    "PUBLIC_APP_URL": "https://rflare.example.com"
-  },
-  "r2_buckets": [
-    {
-      "binding": "ATTACHMENTS",
-      "bucket_name": "rflare-attachments"
-    }
-  ]
+    "PUBLIC_APP_URL": "https://rflare.example.com",
+    // Which mail backend to use. Only "resend" ships today; the provider
+    // interface in src/lib/providers makes room for more.
+    "MAIL_PROVIDER": "resend",
+    // Attachment storage: "database" (default, no R2 needed), "r2" or "auto".
+    "BLOB_STORE": "database"
+  }
+  // R2 is optional. To use it, enable R2 in the Cloudflare dashboard, run
+  // `wrangler r2 bucket create rflare-attachments`, add the binding back and
+  // set BLOB_STORE to "r2" (or "auto"):
+  //
+  // "r2_buckets": [{ "binding": "ATTACHMENTS", "bucket_name": "rflare-attachments" }]
   // Secrets (set with `wrangler secret put` in production, or in .dev.vars locally):
   // RESEND_API_KEY, RESEND_WEBHOOK_SECRET, TURSO_DATABASE_URL, TURSO_AUTH_TOKEN,
   // SESSION_SECRET

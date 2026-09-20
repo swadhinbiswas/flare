@@ -1,5 +1,6 @@
 import { env } from 'cloudflare:workers';
 import { queryAll, run } from './db';
+import { getBlobStore, type StoredObject } from './storage';
 import type { AttachmentDto, AttachmentRow, SessionUser } from './types';
 import { emailOf } from './mail-utils';
 
@@ -21,26 +22,17 @@ export function toAttachmentDto(row: AttachmentRow): AttachmentDto {
   };
 }
 
-export async function putObject(key: string, body: ArrayBuffer | ReadableStream, contentType: string): Promise<void> {
-  await env.ATTACHMENTS.put(key, body, {
-    httpMetadata: { contentType },
-  });
+export async function putObject(key: string, body: ArrayBuffer, contentType: string): Promise<void> {
+  await getBlobStore().put(key, body, contentType);
 }
 
-export async function getObject(key: string) {
-  return env.ATTACHMENTS.get(key);
+export async function getObject(key: string): Promise<StoredObject | null> {
+  return getBlobStore().get(key);
 }
 
 export async function deleteObjects(keys: string[]): Promise<void> {
-  await Promise.all(
-    keys.map(async (key) => {
-      try {
-        await env.ATTACHMENTS.delete(key);
-      } catch (error) {
-        console.warn(`[attachments] failed to delete R2 object ${key}`, error);
-      }
-    }),
-  );
+  if (keys.length === 0) return;
+  await getBlobStore().delete(keys);
 }
 
 export async function arrayBufferToBase64(buffer: ArrayBuffer): Promise<string> {
