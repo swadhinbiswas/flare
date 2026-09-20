@@ -47,6 +47,8 @@ Light theme is one click away in the account menu, and delivery status is visibl
 - **Track delivery** per message: `queued → sent → delivered → opened → clicked`, with bounced,
   complained and failed as terminal states. The status only moves forward, so a late webhook can
   never walk a delivered message back to sent.
+- **Sync from Resend** pulls the recent picture on demand: received emails that predate the
+  webhook are imported and outbound statuses refresh from the API.
 - **Search** the current folder from the list, or everything from `⌘K`.
 - **Keyboard-first**: `c`, `r`, `e`, `#`, `j`/`k`, `Enter`, `/`, `⌘K`, `⌘↵`.
 
@@ -124,6 +126,12 @@ way to get `Invalid webhook signature` on every request.
 something is missing:
 
 <img src="docs/screenshots/settings.png" alt="Settings page showing domain and webhook health" width="80%" />
+
+Resend never replays history, so mail that arrived before the webhook existed will not show up on
+its own. **Sync from Resend** (folder rail, mobile drawer, or `⌘K`) imports the 25 most recent
+received emails and refreshes outbound statuses. It calls `POST /api/sync`, which is auth-gated
+and accepts an optional `limit` up to 100. Until the webhook is live, that button is also how you
+pull in new mail.
 
 ## Configuration
 
@@ -210,6 +218,7 @@ Every route below requires a session except the webhook, which authenticates by 
 | POST | `/api/messages/:id/read` | `{"read": true\|false}` |
 | POST | `/api/attachments/upload` | Multipart upload into R2 |
 | GET | `/api/attachments/:id` | Auth-gated stream, `?inline=1` for inline parts |
+| POST | `/api/sync` | Import recent received mail and refresh outbound statuses |
 | POST | `/api/webhooks/resend` | All Resend events |
 
 ## Data model
