@@ -1,0 +1,27 @@
+---
+import AppShell from '@/layouts/AppShell.astro';
+import MailClient from '@/components/mail/MailClient';
+import { getFolderCounts, getThreadDetail, listThreads } from '@/lib/threads';
+
+const user = Astro.locals.user!;
+const id = Astro.params.id;
+if (!id) return Astro.redirect('/');
+
+const detail = await getThreadDetail(id, { markRead: true });
+if (!detail) return Astro.redirect('/');
+
+const [result, counts] = await Promise.all([listThreads({ folder: 'inbox' }), getFolderCounts()]);
+---
+
+<AppShell title={`${detail.thread.subject || 'Conversation'} · RFLARE`}>
+  <MailClient
+    client:load
+    user={user}
+    folder="inbox"
+    initialThreads={result.threads}
+    initialNextCursor={result.nextCursor}
+    initialCounts={counts}
+    initialThreadId={id}
+    initialThread={detail}
+  />
+</AppShell>
