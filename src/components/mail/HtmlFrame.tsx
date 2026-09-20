@@ -7,25 +7,55 @@ interface HtmlFrameProps {
   className?: string;
 }
 
-function buildSrcDoc(html: string, dark: boolean): string {
-  const fg = dark ? '#e7e7ea' : '#18181b';
-  const border = dark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.1)';
-  const link = dark ? '#7ea2ff' : '#3b5bdb';
+interface FrameTokens {
+  foreground: string;
+  link: string;
+  border: string;
+  muted: string;
+  dark: boolean;
+}
+
+const FALLBACK: FrameTokens = {
+  foreground: '#18181b',
+  link: '#4f46e5',
+  border: 'rgba(0,0,0,0.1)',
+  muted: 'rgba(0,0,0,0.05)',
+  dark: false,
+};
+
+function readTokens(): FrameTokens {
+  if (typeof document === 'undefined') return FALLBACK;
+  const root = document.documentElement;
+  const styles = getComputedStyle(root);
+  const read = (name: string, fallback: string) => styles.getPropertyValue(name).trim() || fallback;
+  return {
+    foreground: read('--foreground', FALLBACK.foreground),
+    link: read('--primary', FALLBACK.link),
+    border: read('--border', FALLBACK.border),
+    muted: read('--muted', FALLBACK.muted),
+    dark: root.classList.contains('dark'),
+  };
+}
+
+function buildSrcDoc(html: string, tokens: FrameTokens): string {
   return `<!doctype html><html><head><meta charset="utf-8" />
 <base target="_blank" />
 <style>
-  :root { color-scheme: ${dark ? 'dark' : 'light'}; }
+  :root { color-scheme: ${tokens.dark ? 'dark' : 'light'}; }
   html, body { margin: 0; padding: 0; background: transparent; }
+  /* flow-root keeps child margins inside the body, so scrollHeight is the real
+     content height and nothing gets clipped at the bottom. */
   body {
+    display: flow-root;
     font-family: Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-    font-size: 14px; line-height: 1.6; color: ${fg}; overflow-wrap: anywhere;
+    font-size: 14px; line-height: 1.6; color: ${tokens.foreground}; overflow-wrap: anywhere;
   }
   img, video { max-width: 100%; height: auto; }
-  a { color: ${link}; text-decoration: underline; text-underline-offset: 2px; }
-  blockquote { border-left: 2px solid ${border}; margin-left: 0; padding-left: 12px; opacity: 0.85; }
+  a { color: ${tokens.link}; text-decoration: underline; text-underline-offset: 2px; }
+  blockquote { border-left: 2px solid ${tokens.border}; margin-left: 0; padding-left: 12px; opacity: 0.85; }
   table { max-width: 100%; }
-  pre { overflow-x: auto; padding: 10px; border-radius: 6px; background: ${dark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)'}; }
-  hr { border: none; border-top: 1px solid ${border}; }
+  pre { overflow-x: auto; padding: 10px; border-radius: 6px; background: ${tokens.muted}; }
+  hr { border: none; border-top: 1px solid ${tokens.border}; }
 </style></head><body>${html}</body></html>`;
 }
 
@@ -33,42 +63,58 @@ function buildSrcDoc(html: string, dark: boolean): string {
  * Renders untrusted email HTML inside a sandboxed iframe. `allow-same-origin`
  * is needed to measure the content height, but scripts are NOT allowed (no
  * allow-scripts), so message HTML can never execute JavaScript in the app.
+ *
+ * Colors come from the active palette's CSS variables, so mail stays readable
+ * in every theme and in both light and dark mode.
  */
 export default function HtmlFrame({ html, className }: HtmlFrameProps) {
   const frameRef = useRef<HTMLIFrameElement>(null);
   const [height, setHeight] = useState(160);
-  const [dark, setDark] = useState(true);
+  const [tokens, setTokens] = useState<FrameTokens>(FALLBACK);
 
   useEffect(() => {
-    const update = () => setDark(document.documentElement.classList.contains('dark'));
+    const update = () => setTokens(readTokens());
     update();
     const observer = new MutationObserver(update);
-    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class', 'data-theme'] });
     return () => observer.disconnect();
   }, []);
 
-  const srcDoc = buildSrcDoc(html, dark);
+  const srcDoc = buildSrcDoc(html, tokens);
 
   useLayoutEffect(() => {
     const frame = frameRef.current;
     if (!frame) return;
     let cancelled = false;
+    let observer: ResizeObserver | null = null;
+
+    // documentElement.scrollHeight reports the viewport height, so it can only
+    // grow. The body's scrollHeight is the real content height.
     const measure = () => {
       if (cancelled) return;
       const doc = frame.contentDocument;
-      if (!doc) return;
-      const next = Math.max(doc.documentElement.scrollHeight, doc.body?.scrollHeight ?? 0) + 4;
+      if (!doc?.body) return;
+      const next = Math.ceil(Math.max(doc.body.scrollHeight, 24)) + 4;
       setHeight((current) => (Math.abs(current - next) > 2 ? next : current));
     };
+
     const onLoad = () => {
       measure();
-      setTimeout(measure, 120);
-      setTimeout(measure, 500);
+      observer?.disconnect();
+      const doc = frame.contentDocument;
+      if (doc?.body && typeof ResizeObserver !== 'undefined') {
+        observer = new ResizeObserver(() => measure());
+        observer.observe(doc.body);
+      }
+      setTimeout(measure, 150);
+      setTimeout(measure, 600);
     };
+
     frame.addEventListener('load', onLoad);
     onLoad();
     return () => {
       cancelled = true;
+      observer?.disconnect();
       frame.removeEventListener('load', onLoad);
     };
   }, [srcDoc]);
