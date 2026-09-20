@@ -19,7 +19,7 @@ const {
 ---
 
 <!doctype html>
-<html lang="en" class="dark">
+<html lang="en" class="dark" data-theme="proton">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
@@ -31,13 +31,15 @@ const {
     <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="canonical" href={Astro.url.href} />
     <script is:inline>
-      // Apply the stored theme before first paint so there is no flash. Dark is
-      // the default; the toggle in the app writes localStorage.
+      // Apply the stored palette and mode before first paint so there is no
+      // flash. Keys must match src/lib/theme.ts.
       try {
-        const stored = localStorage.getItem('rflare-theme');
-        document.documentElement.classList.toggle('dark', stored !== 'light');
-      } catch {
-        /* ignore */
+        var theme = localStorage.getItem('rflare-theme-name') || 'proton';
+        var mode = localStorage.getItem('rflare-theme') || 'dark';
+        document.documentElement.dataset.theme = theme;
+        document.documentElement.classList.toggle('dark', mode !== 'light');
+      } catch (error) {
+        /* storage unavailable */
       }
     </script>
   </head>

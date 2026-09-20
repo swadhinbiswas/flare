@@ -22,12 +22,15 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuShortcut,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { apiFetch } from '@/lib/client';
 import { initials } from '@/lib/format';
+import { THEMES, type ThemeId } from '@/lib/theme';
 import { cn } from '@/lib/utils';
 import type { Folder, SessionUser } from '@/lib/types';
 import type { FolderCounts } from '@/lib/threads';
@@ -37,8 +40,10 @@ interface FolderNavProps {
   counts: FolderCounts;
   user: SessionUser;
   theme: 'light' | 'dark';
+  themeId: ThemeId;
   syncing: boolean;
   onToggleTheme: () => void;
+  onThemeChange: (id: ThemeId) => void;
   onCompose: () => void;
   onOpenPalette: () => void;
   onSync: () => void;
@@ -56,8 +61,10 @@ export default function FolderNav({
   counts,
   user,
   theme,
+  themeId,
   syncing,
   onToggleTheme,
+  onThemeChange,
   onCompose,
   onOpenPalette,
   onSync,
@@ -168,7 +175,7 @@ export default function FolderNav({
               </span>
             </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" side="top" className="w-56">
+          <DropdownMenuContent align="start" side="top" className="w-60">
             <DropdownMenuLabel>Signed in as {user.email}</DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={onToggleTheme}>
@@ -179,6 +186,22 @@ export default function FolderNav({
               <CommandIcon /> Command palette
               <DropdownMenuShortcut>⌘K</DropdownMenuShortcut>
             </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuLabel>Theme</DropdownMenuLabel>
+            <DropdownMenuRadioGroup
+              value={themeId}
+              onValueChange={(value) => onThemeChange(value as ThemeId)}
+            >
+              {THEMES.map((option) => (
+                <DropdownMenuRadioItem key={option.id} value={option.id}>
+                  <span className="flex flex-col">
+                    {option.label}
+                    <span className="text-muted-foreground text-[10px]">{option.hint}</span>
+                  </span>
+                </DropdownMenuRadioItem>
+              ))}
+            </DropdownMenuRadioGroup>
+            <DropdownMenuSeparator />
             <DropdownMenuItem
               onClick={() => {
                 window.location.href = '/settings';

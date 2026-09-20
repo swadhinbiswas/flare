@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Archive, Inbox, LogOut, Mail, Menu, Moon, PenLine, RefreshCw, Search, Send, Settings, Sun, Trash2 } from 'lucide-react';
+import { Archive, Check, Inbox, LogOut, Mail, Menu, Moon, PenLine, RefreshCw, Search, Send, Settings, Sun, Trash2 } from 'lucide-react';
 
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -7,6 +7,7 @@ import { Separator } from '@/components/ui/separator';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { apiFetch } from '@/lib/client';
 import { initials } from '@/lib/format';
+import { THEMES, type ThemeId } from '@/lib/theme';
 import { cn } from '@/lib/utils';
 import type { Folder, SessionUser } from '@/lib/types';
 import type { FolderCounts } from '@/lib/threads';
@@ -16,8 +17,10 @@ interface MobileNavProps {
   counts: FolderCounts;
   user: SessionUser;
   theme: 'light' | 'dark';
+  themeId: ThemeId;
   syncing: boolean;
   onToggleTheme: () => void;
+  onThemeChange: (id: ThemeId) => void;
   onCompose: () => void;
   onOpenPalette: () => void;
   onSync: () => void;
@@ -37,8 +40,10 @@ export default function MobileNav({
   counts,
   user,
   theme,
+  themeId,
   syncing,
   onToggleTheme,
+  onThemeChange,
   onCompose,
   onOpenPalette,
   onSync,
@@ -153,6 +158,30 @@ export default function MobileNav({
               {theme === 'dark' ? <Sun className="size-4" /> : <Moon className="size-4" />}
               {theme === 'dark' ? 'Light mode' : 'Dark mode'}
             </Button>
+            <p className="text-muted-foreground px-1 pt-3 pb-1.5 text-[11px] font-medium tracking-wide uppercase">
+              Theme
+            </p>
+            <div className="grid grid-cols-2 gap-1.5">
+              {THEMES.map((option) => {
+                const active = option.id === themeId;
+                return (
+                  <button
+                    key={option.id}
+                    type="button"
+                    onClick={() => onThemeChange(option.id)}
+                    className={cn(
+                      'flex items-center justify-between gap-2 rounded-md border px-2.5 py-1.5 text-xs transition-colors',
+                      active
+                        ? 'border-primary/50 bg-primary/10 text-foreground'
+                        : 'border-border text-muted-foreground hover:bg-accent/50',
+                    )}
+                  >
+                    {option.label}
+                    {active ? <Check className="text-primary size-3.5" /> : null}
+                  </button>
+                );
+              })}
+            </div>
             <Button
               variant="ghost"
               size="sm"

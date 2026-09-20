@@ -13,6 +13,7 @@ import { apiFetch, jsonBody } from '@/lib/client';
 import { fullDateTime } from '@/lib/format';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { emailOf, htmlToPreview, normalizeSubject } from '@/lib/mail-utils';
+import { applyColorMode, applyTheme, readColorMode, readThemeId, type ThemeId } from '@/lib/theme';
 import type { FolderCounts } from '@/lib/threads';
 import type { Folder, MessageDto, SessionUser, ThreadDetailDto, ThreadListResponse, ThreadSummaryDto } from '@/lib/types';
 
@@ -82,6 +83,7 @@ export default function MailClient(props: MailClientProps) {
   const [detailLoading, setDetailLoading] = useState(false);
   const [query, setQuery] = useState('');
   const [theme, setTheme] = useState<'light' | 'dark'>('dark');
+  const [themeId, setThemeId] = useState<ThemeId>('proton');
   const [composeOpen, setComposeOpen] = useState(false);
   const [draft, setDraft] = useState<ComposeDraft | null>(null);
   const [paletteOpen, setPaletteOpen] = useState(false);
@@ -96,20 +98,21 @@ export default function MailClient(props: MailClientProps) {
   const isMobile = useIsMobile();
 
   useEffect(() => {
-    setTheme(document.documentElement.classList.contains('dark') ? 'dark' : 'light');
+    setTheme(readColorMode());
+    setThemeId(readThemeId());
   }, []);
 
   const toggleTheme = useCallback(() => {
     setTheme((previous) => {
       const next = previous === 'dark' ? 'light' : 'dark';
-      document.documentElement.classList.toggle('dark', next === 'dark');
-      try {
-        localStorage.setItem('rflare-theme', next);
-      } catch {
-        // ignore
-      }
+      applyColorMode(next);
       return next;
     });
+  }, []);
+
+  const changeTheme = useCallback((id: ThemeId) => {
+    setThemeId(id);
+    applyTheme(id);
   }, []);
 
   // --- Data loading ---------------------------------------------------------
@@ -503,8 +506,10 @@ export default function MailClient(props: MailClientProps) {
             counts={counts}
             user={user}
             theme={theme}
+            themeId={themeId}
             syncing={syncing}
             onToggleTheme={toggleTheme}
+            onThemeChange={changeTheme}
             onCompose={startCompose}
             onOpenPalette={() => setPaletteOpen(true)}
             onSync={() => void syncFromResend()}
@@ -521,8 +526,10 @@ export default function MailClient(props: MailClientProps) {
               counts={counts}
               user={user}
               theme={theme}
+              themeId={themeId}
               syncing={syncing}
               onToggleTheme={toggleTheme}
+              onThemeChange={changeTheme}
               onCompose={startCompose}
               onOpenPalette={() => setPaletteOpen(true)}
               onSync={() => void syncFromResend()}
@@ -555,9 +562,11 @@ export default function MailClient(props: MailClientProps) {
         folder={folder}
         recentThreads={recentForPalette}
         syncing={syncing}
+        themeId={themeId}
         onSelectThread={(id) => void openThread(id)}
         onCompose={startCompose}
         onToggleTheme={toggleTheme}
+        onThemeChange={changeTheme}
         onSync={() => void syncFromResend()}
         onSignOut={() => void onSignOut()}
       />

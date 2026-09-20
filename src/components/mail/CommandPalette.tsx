@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Archive, Inbox, LogOut, Mail, Moon, PenLine, RefreshCw, Send, Settings, Sun, Trash2 } from 'lucide-react';
+import { Archive, Inbox, LogOut, Mail, Moon, Palette, PenLine, RefreshCw, Send, Settings, Sun, Trash2 } from 'lucide-react';
 
 import {
   CommandDialog,
@@ -14,6 +14,7 @@ import {
 import { apiFetch } from '@/lib/client';
 import { relativeTime } from '@/lib/format';
 import { emailOf, nameOf } from '@/lib/mail-utils';
+import { THEMES, type ThemeId } from '@/lib/theme';
 import type { Folder, ThreadListResponse, ThreadSummaryDto } from '@/lib/types';
 
 interface CommandPaletteProps {
@@ -22,9 +23,11 @@ interface CommandPaletteProps {
   folder: Folder;
   recentThreads: ThreadSummaryDto[];
   syncing: boolean;
+  themeId: ThemeId;
   onSelectThread: (id: string) => void;
   onCompose: () => void;
   onToggleTheme: () => void;
+  onThemeChange: (id: ThemeId) => void;
   onSync: () => void;
   onSignOut: () => void;
 }
@@ -34,9 +37,11 @@ export default function CommandPalette({
   onOpenChange,
   recentThreads,
   syncing,
+  themeId,
   onSelectThread,
   onCompose,
   onToggleTheme,
+  onThemeChange,
   onSync,
   onSignOut,
 }: CommandPaletteProps) {
@@ -146,6 +151,24 @@ export default function CommandPalette({
           >
             <LogOut /> Sign out
           </CommandItem>
+        </CommandGroup>
+
+        <CommandSeparator />
+        <CommandGroup heading="Theme">
+          {THEMES.map((option) => (
+            <CommandItem
+              key={option.id}
+              value={`theme palette ${option.label} ${option.id}`}
+              onSelect={() => {
+                onThemeChange(option.id);
+                onOpenChange(false);
+              }}
+            >
+              <Palette />
+              {option.label}
+              {option.id === themeId ? <CommandShortcut>active</CommandShortcut> : null}
+            </CommandItem>
+          ))}
         </CommandGroup>
 
         <CommandSeparator />

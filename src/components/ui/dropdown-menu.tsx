@@ -81,6 +81,19 @@ function DropdownMenuCheckboxItem({
   );
 }
 
+function DropdownMenuRadioGroup({
+  className,
+  ...props
+}: React.ComponentProps<typeof DropdownMenuPrimitive.RadioGroup>) {
+  return (
+    <DropdownMenuPrimitive.RadioGroup
+      data-slot="dropdown-menu-radio-group"
+      className={cn('grid gap-0.5', className)}
+      {...props}
+    />
+  );
+}
+
 function DropdownMenuRadioItem({
   className,
   children,
@@ -191,6 +204,7 @@ export {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuShortcut,
