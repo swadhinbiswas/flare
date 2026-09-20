@@ -1,5 +1,4 @@
-import { getResend } from './resend';
-import type { CreateEmailOptions } from 'resend';
+import { getMailProvider } from './providers';
 import { queryOne, run } from './db';
 import { claimDraftAttachments, getObject, arrayBufferToBase64, releaseDraftAttachments } from './attachments';
 import {
@@ -148,35 +147,35 @@ export async function sendMessage(params: {
     : undefined;
 
   // --- Send ----------------------------------------------------------------
-  const resend = getResend();
-  const base = {
-    from: formatFrom(user.email, displayName),
-    to,
-    subject,
-    ...(cc.length ? { cc } : {}),
-    ...(bcc.length ? { bcc } : {}),
-    ...(payloadAttachments ? { attachments: payloadAttachments } : {}),
-    ...(replyHeaders ? { headers: replyHeaders } : {}),
-  };
-  const payload: CreateEmailOptions = html
-    ? { ...base, html, ...(text ? { text } : {}) }
-    : { ...base, text: text ?? '' };
-  const { data, error } = await resend.emails.send(payload);
-
-  if (error || !data?.id) {
-    const detail = error?.message ?? 'Resend returned no message id';
+  const provider = getMailProvider();
+  let providerMessageId: string;
+  try {
+    const sent = await provider.send({
+      from: formatFrom(user.email, displayName),
+      to,
+      ...(cc.length ? { cc } : {}),
+      ...(bcc.length ? { bcc } : {}),
+      subject,
+      ...(html ? { html } : {}),
+      ...(text ? { text } : {}),
+      ...(payloadAttachments ? { attachments: payloadAttachments } : {}),
+      ...(replyHeaders ? { headers: replyHeaders } : {}),
+    });
+    providerMessageId = sent.id;
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : 'Provider returned no message id';
     await run(`UPDATE messages SET status = 'failed' WHERE id = ?`, [messageId]);
     await recordSendEvent(messageId, 'email.failed', { message: detail });
     await releaseDraftAttachments(attachments);
     throw new SendError(`Sending failed: ${detail}`);
   }
 
-  await run(`UPDATE messages SET resend_email_id = ?, status = 'sent' WHERE id = ?`, [data.id, messageId]);
-  await recordSendEvent(messageId, 'email.sent', { id: data.id, subject, to });
+  await run(`UPDATE messages SET resend_email_id = ?, status = 'sent' WHERE id = ?`, [providerMessageId, messageId]);
+  await recordSendEvent(messageId, 'email.sent', { id: providerMessageId, subject, to });
   await addParticipants(threadId, [user.email, ...to, ...cc, ...bcc]);
   await touchThread(threadId, { lastMessageAt: createdAt });
 
-  return { messageId, threadId, resendEmailId: data.id, status: 'sent' };
+  return { messageId, threadId, resendEmailId: providerMessageId, status: 'sent' };
 }
 
 export async function messageExistsForResendId(resendEmailId: string): Promise<boolean> {

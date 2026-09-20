@@ -1,4 +1,4 @@
-import { getResend } from './resend';
+import { getMailProvider } from './providers';
 import { queryAll, run } from './db';
 import { ingestReceivedEmail } from './inbound';
 import { shouldAdvance } from './status';
@@ -38,15 +38,12 @@ export interface SyncResult {
 }
 
 export async function syncFromResend(limit = 25): Promise<SyncResult> {
-  const resend = getResend();
+  const provider = getMailProvider();
   const result: SyncResult = { scanned: 0, received: 0, statuses: 0, errors: [] };
 
-  const list = await resend.emails.receiving.list({ limit });
-  if (list.error) {
-    throw new Error(`Resend receiving list failed: ${list.error.message}`);
-  }
+  const list = await provider.listReceived(limit);
 
-  for (const item of list.data.data) {
+  for (const item of list) {
     result.scanned += 1;
     try {
       const { inserted } = await ingestReceivedEmail(item.id);
@@ -65,18 +62,17 @@ export async function syncFromResend(limit = 25): Promise<SyncResult> {
 
   for (const message of outbound) {
     try {
-      const { data, error } = await resend.emails.get(message.resend_email_id);
-      if (error || !data) continue;
-      const next = STATUS_FROM_LAST_EVENT[data.last_event];
-      if (!next || !shouldAdvance(message.status, next)) continue;
+      const lastEvent = await provider.getMessageStatus(message.resend_email_id);
+      const next = lastEvent ? STATUS_FROM_LAST_EVENT[lastEvent] : null;
+      if (!lastEvent || !next || !shouldAdvance(message.status, next)) continue;
       await run('UPDATE messages SET status = ? WHERE id = ?', [next, message.id]);
       await run(
         'INSERT INTO email_events (id, message_id, resend_event_type, payload_json, created_at) VALUES (?, ?, ?, ?, ?)',
         [
           crypto.randomUUID(),
           message.id,
-          `email.${data.last_event}`,
-          JSON.stringify({ source: 'sync', last_event: data.last_event }),
+          `email.${lastEvent}`,
+          JSON.stringify({ source: 'sync', last_event: lastEvent }),
           nowIso(),
         ],
       );

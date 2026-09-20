@@ -1,25 +1,10 @@
 import { queryOne, run } from './db';
 import { statusFromEventType, shouldAdvance } from './status';
 import { nowIso } from './threads';
+import type { ProviderWebhookEvent } from './providers/types';
 import type { MessageStatus } from './types';
 
-/**
- * Minimal structural type for a verified Resend webhook event. We only depend on
- * the fields the app actually reads, which keeps the webhook handler stable
- * across Resend SDK additions.
- */
-export interface ResendWebhookEvent {
-  type: string;
-  created_at?: string;
-  data: {
-    email_id?: string;
-    message_id?: string;
-    from?: string;
-    to?: string[];
-    subject?: string;
-    [key: string]: unknown;
-  };
-}
+export type ResendWebhookEvent = ProviderWebhookEvent;
 
 /**
  * Appends an entry to the audit log and advances `messages.status` only when the
@@ -27,7 +12,7 @@ export interface ResendWebhookEvent {
  * `delivered`, and bounced/complained/failed outrank the happy path).
  */
 export async function recordStatusEvent(event: ResendWebhookEvent): Promise<void> {
-  const emailId = event.data?.email_id;
+  const emailId = typeof event.data?.email_id === 'string' ? event.data.email_id : null;
   if (!emailId) return;
 
   const message = await queryOne<{ id: string; status: MessageStatus; message_id_header: string | null }>(
@@ -35,13 +20,13 @@ export async function recordStatusEvent(event: ResendWebhookEvent): Promise<void
     [emailId],
   );
   if (!message) {
-    // Unknown message (e.g. mail sent outside RFLARE) — nothing to record.
+    // Unknown message (e.g. mail sent outside the app) — nothing to record.
     return;
   }
 
   await run(
     'INSERT INTO email_events (id, message_id, resend_event_type, payload_json, created_at) VALUES (?, ?, ?, ?, ?)',
-    [crypto.randomUUID(), message.id, event.type, JSON.stringify(event), event.created_at ?? nowIso()],
+    [crypto.randomUUID(), message.id, event.type, JSON.stringify(event), event.createdAt ?? nowIso()],
   );
 
   // Capture the provider-assigned RFC Message-ID the first time we see it so
