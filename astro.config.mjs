@@ -6,7 +6,9 @@ import tailwindcss from '@tailwindcss/vite';
 
 export default defineConfig({
   output: 'server',
-  adapter: cloudflare(),
+  // We do not use Astro's image pipeline, so skip the Cloudflare Images binding
+  // entirely (nothing to auto-provision at deploy time).
+  adapter: cloudflare({ imageService: 'passthrough' }),
   integrations: [react()],
   // We use our own signed session cookie auth (see src/lib/auth.ts), so we do
   // not need the adapter-provisioned Workers KV namespace for Astro Sessions.
