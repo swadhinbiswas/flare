@@ -1,0 +1,34 @@
+{
+  // RFLARE — self-hosted mailbox on Resend + Cloudflare Workers + Turso.
+  // Astro 6+ / @astrojs/cloudflare v14: the Worker entrypoint is provided by the
+  // adapter, and `astro dev` runs on workerd with these bindings available locally.
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "rflare",
+  "main": "@astrojs/cloudflare/entrypoints/server",
+  "compatibility_date": "2026-09-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS"
+  },
+  "observability": {
+    "enabled": true
+  },
+  "vars": {
+    // The verified Resend sending/receiving domain (root or subdomain).
+    "RESEND_INBOUND_DOMAIN": "swadhin.cv",
+    // Display name used in the From header for outbound mail.
+    "MAIL_FROM_NAME": "RFLARE",
+    // Public URL of this app, used for links inside notification emails.
+    "PUBLIC_APP_URL": "https://rflare.example.com"
+  },
+  "r2_buckets": [
+    {
+      "binding": "ATTACHMENTS",
+      "bucket_name": "rflare-attachments"
+    }
+  ]
+  // Secrets (set with `wrangler secret put` in production, or in .dev.vars locally):
+  // RESEND_API_KEY, RESEND_WEBHOOK_SECRET, TURSO_DATABASE_URL, TURSO_AUTH_TOKEN,
+  // SESSION_SECRET
+}
