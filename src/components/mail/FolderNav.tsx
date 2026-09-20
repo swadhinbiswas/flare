@@ -15,7 +15,7 @@ import {
   Command as CommandIcon,
 } from 'lucide-react';
 
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -165,12 +165,15 @@ export default function FolderNav({
               className="hover:bg-accent/60 mt-1 flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-left transition-colors"
             >
               <Avatar className="size-7">
+                {user.hasAvatar ? <AvatarImage src="/api/profile/avatar" alt="" /> : null}
                 <AvatarFallback className="bg-primary/15 text-primary text-[10px]">
-                  {initials(user.email)}
+                  {initials(user.displayName || user.email)}
                 </AvatarFallback>
               </Avatar>
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-xs font-medium">{user.email.split('@')[0]}</span>
+                <span className="block truncate text-xs font-medium">
+                  {user.displayName || user.email.split('@')[0]}
+                </span>
                 <span className="text-muted-foreground block truncate text-[10px]">{user.email}</span>
               </span>
             </button>

@@ -9,7 +9,7 @@ import {
   UserRound,
 } from 'lucide-react';
 
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -28,6 +28,7 @@ import type { MessageDto } from '@/lib/types';
 
 interface MessageBubbleProps {
   message: MessageDto;
+  avatarUrl?: string | null;
   onReply: (message: MessageDto) => void;
   onReplyAll: (message: MessageDto) => void;
   onForward: (message: MessageDto) => void;
@@ -36,6 +37,7 @@ interface MessageBubbleProps {
 
 export default function MessageBubble({
   message,
+  avatarUrl,
   onReply,
   onReplyAll,
   onForward,
@@ -56,6 +58,7 @@ export default function MessageBubble({
     >
       <header className="flex items-start gap-3">
         <Avatar className="mt-0.5 size-8">
+          {isOutbound && avatarUrl ? <AvatarImage src={avatarUrl} alt="" /> : null}
           <AvatarFallback className={cn(isOutbound && 'bg-primary/15 text-primary')}>
             {initials(fromName)}
           </AvatarFallback>

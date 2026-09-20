@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Archive, Check, Inbox, LogOut, Mail, Menu, Moon, PenLine, RefreshCw, Search, Send, Settings, Sun, Trash2 } from 'lucide-react';
 
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
@@ -145,12 +145,15 @@ export default function MobileNav({
           <div className="mt-auto px-3 pb-5">
             <div className="flex items-center gap-2.5 px-1 py-2">
               <Avatar className="size-8">
+                {user.hasAvatar ? <AvatarImage src="/api/profile/avatar" alt="" /> : null}
                 <AvatarFallback className="bg-primary/15 text-primary text-[10px]">
-                  {initials(user.email)}
+                  {initials(user.displayName || user.email)}
                 </AvatarFallback>
               </Avatar>
               <span className="min-w-0">
-                <span className="block truncate text-xs font-medium">{user.email.split('@')[0]}</span>
+                <span className="block truncate text-xs font-medium">
+                  {user.displayName || user.email.split('@')[0]}
+                </span>
                 <span className="text-muted-foreground block truncate text-[10px]">{user.email}</span>
               </span>
             </div>

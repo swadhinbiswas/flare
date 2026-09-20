@@ -23,6 +23,7 @@ import { emailOf, nameOf, normalizeSubject } from '@/lib/mail-utils';
 import type { MessageDto, ThreadDetailDto } from '@/lib/types';
 
 interface MessageViewProps {
+  avatarUrl?: string | null;
   detail: ThreadDetailDto | null;
   loading: boolean;
   showBack?: boolean;
@@ -69,6 +70,7 @@ function ActionButton({
 export default function MessageView({
   detail,
   loading,
+  avatarUrl,
   showBack = false,
   onBack,
   onReply,
@@ -219,6 +221,7 @@ export default function MessageView({
               onReplyAll={onReplyAll}
               onForward={onForward}
               onToggleRead={onToggleMessageRead}
+              avatarUrl={avatarUrl}
             />
           ))}
 
@@ -230,6 +233,7 @@ export default function MessageView({
               onReplyAll={onReplyAll}
               onForward={onForward}
               onToggleRead={onToggleMessageRead}
+              avatarUrl={avatarUrl}
             />
           ))}
 

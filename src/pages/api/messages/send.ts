@@ -15,7 +15,7 @@ export const POST: APIRoute = apiHandler(async ({ request, locals }) => {
     const result = await sendMessage({
       user,
       input,
-      displayName: env.MAIL_FROM_NAME || 'RFLARE',
+      displayName: user.displayName?.trim() || env.MAIL_FROM_NAME || 'RFLARE',
     });
     return json(result);
   } catch (error) {

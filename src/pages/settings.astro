@@ -6,9 +6,11 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { getResend } from '@/lib/resend';
+import { getMailProvider } from '@/lib/providers';
+import ProfileForm from '@/components/settings/ProfileForm';
 
 const user = Astro.locals.user!;
+const provider = getMailProvider();
 const webhookUrl = new URL('/api/webhooks/resend', env.PUBLIC_APP_URL).toString();
 const inboundDomain = env.RESEND_INBOUND_DOMAIN;
 
@@ -20,27 +22,23 @@ let webhooks: WebhookInfo[] | null = null;
 let resendError: string | null = null;
 
 try {
-  const domainsResult = await getResend().domains.list();
-  if (domainsResult.error) throw new Error(domainsResult.error.message);
-  const match = domainsResult.data.data.find((item) => item.name === inboundDomain);
+  const domains = await provider.listDomains();
+  const match = domains.find((item) => item.name === inboundDomain);
   if (match) {
     domain = {
       name: match.name,
       status: match.status,
       region: match.region,
-      sending: match.capabilities?.sending,
-      receiving: match.capabilities?.receiving,
+      sending: match.sending,
+      receiving: match.receiving,
     };
   }
 } catch (error) {
-  resendError = error instanceof Error ? error.message : 'Could not reach the Resend API.';
+  resendError = error instanceof Error ? error.message : 'Could not reach the mail provider.';
 }
 
 try {
-  const webhooksResult = await getResend().webhooks.list();
-  if (!webhooksResult.error) {
-    webhooks = webhooksResult.data.data.map((item) => ({ endpoint: item.endpoint, events: item.events }));
-  }
+  webhooks = (await provider.listWebhooks()).map((item) => ({ endpoint: item.endpoint, events: item.events }));
 } catch {
   webhooks = null;
 }
@@ -98,6 +96,18 @@ const domainHealthy = domain?.status === 'verified' && sendingEnabled && receivi
     ) : null}
 
     <div class="grid gap-5">
+      <Card>
+        <CardHeader>
+          <CardTitle>Profile</CardTitle>
+          <CardDescription>
+            How you appear in the app and in the From header of outgoing mail.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ProfileForm client:load user={user} />
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader>
           <CardTitle>Account</CardTitle>

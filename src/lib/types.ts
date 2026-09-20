@@ -1,6 +1,8 @@
 export interface SessionUser {
   id: string;
   email: string;
+  displayName: string | null;
+  hasAvatar: boolean;
 }
 
 export type Folder = 'inbox' | 'sent' | 'archive' | 'trash';
