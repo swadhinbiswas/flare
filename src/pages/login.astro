@@ -1,0 +1,31 @@
+---
+import AppShell from '@/layouts/AppShell.astro';
+import LoginForm from '@/components/auth/LoginForm';
+import { Mail } from 'lucide-react';
+
+const user = Astro.locals.user;
+if (user) {
+  const nextParam = Astro.url.searchParams.get('next');
+  return Astro.redirect(nextParam?.startsWith('/') ? nextParam : '/');
+}
+
+const next = Astro.url.searchParams.get('next') ?? '/';
+---
+
+<AppShell title="Sign in — RFLARE" centered bodyClass="p-6">
+  <div class="w-full max-w-sm">
+    <div class="mb-8 flex flex-col items-center gap-3 text-center">
+      <div class="bg-primary text-primary-foreground grid size-11 place-items-center rounded-xl shadow-lg">
+        <Mail className="size-5" />
+      </div>
+      <div>
+        <h1 class="text-xl font-semibold tracking-tight">RFLARE</h1>
+        <p class="text-muted-foreground text-sm">Sign in to your mailbox.</p>
+      </div>
+    </div>
+    <LoginForm client:load next={next} />
+    <p class="text-muted-foreground mt-6 text-center text-xs">
+      Private, self-hosted mailbox. Sessions are signed, HTTP-only cookies.
+    </p>
+  </div>
+</AppShell>
