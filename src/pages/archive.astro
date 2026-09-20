@@ -1,0 +1,19 @@
+---
+import AppShell from '@/layouts/AppShell.astro';
+import MailClient from '@/components/mail/MailClient';
+import { getFolderCounts, listThreads } from '@/lib/threads';
+
+const user = Astro.locals.user!;
+const [result, counts] = await Promise.all([listThreads({ folder: 'archive' }), getFolderCounts()]);
+---
+
+<AppShell title="Archive · RFLARE">
+  <MailClient
+    client:load
+    user={user}
+    folder="archive"
+    initialThreads={result.threads}
+    initialNextCursor={result.nextCursor}
+    initialCounts={counts}
+  />
+</AppShell>
