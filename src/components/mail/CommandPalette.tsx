@@ -108,14 +108,14 @@ export default function CommandPalette({
             <CommandShortcut>c</CommandShortcut>
           </CommandItem>
           <CommandItem
-            value="sync from resend import recent mail"
+            value="sync mail import recent messages"
             onSelect={() => {
               onOpenChange(false);
               onSync();
             }}
           >
             <RefreshCw className={syncing ? 'animate-spin' : undefined} />
-            {syncing ? 'Syncing with Resend…' : 'Sync from Resend'}
+            {syncing ? 'Syncing…' : 'Sync mail'}
           </CommandItem>
           <CommandItem value="go to inbox" onSelect={() => go('/')}>
             <Inbox /> Inbox

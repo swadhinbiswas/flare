@@ -7,7 +7,7 @@ import { env } from 'cloudflare:workers';
  * account lives in a cookie and scopes threads and messages.
  */
 
-export const ACCOUNT_COOKIE = 'rflare_account';
+export const ACCOUNT_COOKIE = 'flare_account';
 export const DEFAULT_ACCOUNT_ID = 'primary';
 
 const KNOWN_PROVIDERS = ['resend', 'maileroo'];

@@ -15,8 +15,8 @@ export const THEMES = [
 export type ThemeId = (typeof THEMES)[number]['id'];
 export type ColorMode = 'light' | 'dark';
 
-export const THEME_STORAGE_KEY = 'rflare-theme-name';
-export const MODE_STORAGE_KEY = 'rflare-theme';
+export const THEME_STORAGE_KEY = 'flare-theme-name';
+export const MODE_STORAGE_KEY = 'flare-theme';
 export const DEFAULT_THEME: ThemeId = 'proton';
 
 export function isThemeId(value: unknown): value is ThemeId {

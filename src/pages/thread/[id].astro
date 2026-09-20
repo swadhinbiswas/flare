@@ -16,7 +16,7 @@ if (!detail) return Astro.redirect('/');
 const [result, counts] = await Promise.all([listThreads({ accountId: account.id, folder: 'inbox' }), getFolderCounts(account.id)]);
 ---
 
-<AppShell title={`${detail.thread.subject || 'Conversation'} · RFLARE`}>
+<AppShell title={`${detail.thread.subject || 'Conversation'} · FLARE`}>
   <MailClient
     client:load
     user={user}

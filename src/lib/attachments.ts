@@ -91,7 +91,7 @@ export async function attachmentsForMessages(messageIds: string[]): Promise<Map<
 }
 
 /**
- * Access check for attachment downloads. RFLARE is a single-tenant mailbox: any
+ * Access check for attachment downloads. FLARE is a single-tenant mailbox: any
  * authenticated session may read any stored message. This function exists so the
  * policy is stated in exactly one place; if this ever grows per-user mailboxes,
  * check the session user against the thread participants here.

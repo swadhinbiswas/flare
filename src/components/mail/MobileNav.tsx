@@ -82,7 +82,7 @@ export default function MobileNav({
               <span className="bg-primary text-primary-foreground grid size-6 place-items-center rounded-md">
                 <Mail className="size-3.5" />
               </span>
-              RFLARE
+              FLARE
             </SheetTitle>
           </SheetHeader>
           <div className="px-3 pb-2">
@@ -146,7 +146,7 @@ export default function MobileNav({
               }}
             >
               <RefreshCw className={cn('size-4', syncing && 'animate-spin')} />
-              {syncing ? 'Syncing with Resend…' : 'Sync from Resend'}
+              {syncing ? 'Syncing…' : 'Sync mail'}
             </Button>
           </div>
           <div className="px-3 py-1">

@@ -1,6 +1,6 @@
 {
-  "name": "RFLARE",
-  "short_name": "RFLARE",
+  "name": "FLARE",
+  "short_name": "FLARE",
   "description": "Self-hosted mailbox on Resend, Cloudflare Workers and Turso.",
   "start_url": "/",
   "scope": "/",

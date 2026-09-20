@@ -38,7 +38,7 @@ export interface SyncResult {
   errors: string[];
 }
 
-export async function syncFromResend(limit: number, account: MailAccountConfig): Promise<SyncResult> {
+export async function syncMail(limit: number, account: MailAccountConfig): Promise<SyncResult> {
   const provider = getMailProvider(account);
   const result: SyncResult = { scanned: 0, received: 0, statuses: 0, errors: [] };
 

@@ -13,6 +13,6 @@ export function getResend(apiKey?: string): Resend {
 }
 
 export function fromAddress(email: string): string {
-  const name = env.MAIL_FROM_NAME?.trim() || 'RFLARE';
+  const name = env.MAIL_FROM_NAME?.trim() || 'FLARE';
   return `${name} <${email}>`;
 }

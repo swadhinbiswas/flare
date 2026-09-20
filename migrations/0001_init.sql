@@ -1,4 +1,4 @@
--- RFLARE initial schema (Turso / libSQL)
+-- FLARE initial schema (Turso / libSQL)
 --
 -- Design notes:
 --   * Every inbound AND outbound message is a row in `messages`.

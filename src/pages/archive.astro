@@ -10,7 +10,7 @@ const accounts = accountSummaries();
 const [result, counts] = await Promise.all([listThreads({ accountId: account.id, folder: 'archive' }), getFolderCounts(account.id)]);
 ---
 
-<AppShell title="Archive · RFLARE">
+<AppShell title="Archive · FLARE">
   <MailClient
     client:load
     user={user}

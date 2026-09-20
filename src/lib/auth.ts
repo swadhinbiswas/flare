@@ -5,7 +5,7 @@ import type { SessionUser } from './types';
 
 export { hashPassword, verifyPassword };
 
-export const SESSION_COOKIE = 'rflare_session';
+export const SESSION_COOKIE = 'flare_session';
 const SESSION_TTL_DAYS = 30;
 const SESSION_TTL_SECONDS = SESSION_TTL_DAYS * 24 * 60 * 60;
 /** Renew the session when less than half its lifetime remains. */

@@ -26,7 +26,7 @@ export default function SettingsActions({ user, webhookUrl }: SettingsActionsPro
     const next = theme === 'dark' ? 'light' : 'dark';
     document.documentElement.classList.toggle('dark', next === 'dark');
     try {
-      localStorage.setItem('rflare-theme', next);
+      localStorage.setItem('flare-theme', next);
     } catch {
       // ignore
     }

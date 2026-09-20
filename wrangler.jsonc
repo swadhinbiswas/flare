@@ -1,9 +1,9 @@
 {
-  // RFLARE — self-hosted mailbox on Resend + Cloudflare Workers + Turso.
+  // FLARE — self-hosted mailbox on Resend + Cloudflare Workers + Turso.
   // Astro 6+ / @astrojs/cloudflare v14: the Worker entrypoint is provided by the
   // adapter, and `astro dev` runs on workerd with these bindings available locally.
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "rflare",
+  "name": "flare",
   "main": "@astrojs/cloudflare/entrypoints/server",
   "compatibility_date": "2026-09-01",
   "compatibility_flags": ["nodejs_compat"],
@@ -18,9 +18,9 @@
     // The verified Resend sending/receiving domain (root or subdomain).
     "RESEND_INBOUND_DOMAIN": "swadhin.cv",
     // Display name used in the From header when a profile has no name set.
-    "MAIL_FROM_NAME": "RFLARE",
+    "MAIL_FROM_NAME": "FLARE",
     // Public URL of this app, used for links inside notification emails.
-    "PUBLIC_APP_URL": "https://rflare.example.com",
+    "PUBLIC_APP_URL": "https://flare.example.com",
     // Which mail backend to use. Only "resend" ships today; the provider
     // interface in src/lib/providers makes room for more.
     "MAIL_PROVIDER": "resend",
@@ -37,10 +37,10 @@
     "MAIL_ACCOUNTS": ""
   },
   // R2 is optional. To use it, enable R2 in the Cloudflare dashboard, run
-  // `wrangler r2 bucket create rflare-attachments`, add the binding back and
+  // `wrangler r2 bucket create flare-attachments`, add the binding back and
   // set BLOB_STORE to "r2" (or "auto"):
   //
-  // "r2_buckets": [{ "binding": "ATTACHMENTS", "bucket_name": "rflare-attachments" }]
+  // "r2_buckets": [{ "binding": "ATTACHMENTS", "bucket_name": "flare-attachments" }]
   // Secrets (set with `wrangler secret put` in production, or in .dev.vars locally):
   // RESEND_API_KEY, RESEND_WEBHOOK_SECRET, TURSO_DATABASE_URL, TURSO_AUTH_TOKEN,
   // SESSION_SECRET, MAILEROO_API_KEY, MAILEROO_WEBHOOK_SECRET

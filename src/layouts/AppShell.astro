@@ -11,7 +11,7 @@ interface Props {
 }
 
 const {
-  title = 'RFLARE',
+  title = 'FLARE',
   description = 'Self-hosted mailbox on Resend, Cloudflare Workers and Turso.',
   bodyClass = '',
   centered = false,
@@ -34,8 +34,8 @@ const {
       // Apply the stored palette and mode before first paint so there is no
       // flash. Keys must match src/lib/theme.ts.
       try {
-        var theme = localStorage.getItem('rflare-theme-name') || 'proton';
-        var mode = localStorage.getItem('rflare-theme') || 'dark';
+        var theme = localStorage.getItem('flare-theme-name') || 'proton';
+        var mode = localStorage.getItem('flare-theme') || 'dark';
         document.documentElement.dataset.theme = theme;
         document.documentElement.classList.toggle('dark', mode !== 'light');
       } catch (error) {

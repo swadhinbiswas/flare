@@ -182,7 +182,7 @@ export default function MailClient(props: MailClientProps) {
     }
   }, [selectedId]);
 
-  const syncFromResend = useCallback(
+  const syncMail = useCallback(
     async (options: { silent?: boolean } = {}) => {
       if (syncing) return;
       setSyncing(true);
@@ -193,7 +193,7 @@ export default function MailClient(props: MailClientProps) {
         );
         const changed = result.received > 0 || result.statuses > 0;
         if (result.received > 0) {
-          toast.success(`Imported ${result.received} ${result.received === 1 ? 'message' : 'messages'} from Resend`);
+          toast.success(`Imported ${result.received} ${result.received === 1 ? 'message' : 'messages'}`);
         } else if (result.statuses > 0) {
           toast.success(`Updated ${result.statuses} delivery ${result.statuses === 1 ? 'status' : 'statuses'}`);
         } else if (!options.silent) {
@@ -220,7 +220,7 @@ export default function MailClient(props: MailClientProps) {
   // minute while the tab is visible, and when it regains focus (throttled).
   useEffect(() => {
     const THROTTLE_MS = 55_000;
-    const lastRunKey = 'rflare-last-auto-sync';
+    const lastRunKey = 'flare-last-auto-sync';
     const canRun = () => {
       try {
         const last = Number(sessionStorage.getItem(lastRunKey) ?? 0);
@@ -236,7 +236,7 @@ export default function MailClient(props: MailClientProps) {
       } catch {
         // ignore
       }
-      void syncFromResend({ silent: true });
+      void syncMail({ silent: true });
     };
 
     const initial = setTimeout(run, 1000);
@@ -250,7 +250,7 @@ export default function MailClient(props: MailClientProps) {
       document.removeEventListener('visibilitychange', onFocus);
       window.removeEventListener('focus', onFocus);
     };
-  }, [syncFromResend]);
+  }, [syncMail]);
 
   // --- Thread actions -------------------------------------------------------
   const moveThread = useCallback(
@@ -588,7 +588,7 @@ export default function MailClient(props: MailClientProps) {
             onSwitchAccount={(id) => void switchAccount(id)}
             onCompose={startCompose}
             onOpenPalette={() => setPaletteOpen(true)}
-            onSync={() => void syncFromResend()}
+            onSync={() => void syncMail()}
           />
           <div className="min-h-0 flex-1">
             {mobilePane === 'thread' && selectedId ? messageView : threadList}
@@ -611,7 +611,7 @@ export default function MailClient(props: MailClientProps) {
               onSwitchAccount={(id) => void switchAccount(id)}
               onCompose={startCompose}
               onOpenPalette={() => setPaletteOpen(true)}
-              onSync={() => void syncFromResend()}
+              onSync={() => void syncMail()}
             />
           </ResizablePanel>
           <ResizableHandle />
@@ -646,7 +646,7 @@ export default function MailClient(props: MailClientProps) {
         onCompose={startCompose}
         onToggleTheme={toggleTheme}
         onThemeChange={changeTheme}
-        onSync={() => void syncFromResend()}
+        onSync={() => void syncMail()}
         onSignOut={() => void onSignOut()}
       />
       </div>

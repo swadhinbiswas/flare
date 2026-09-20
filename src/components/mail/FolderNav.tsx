@@ -96,7 +96,7 @@ export default function FolderNav({
         <div className="bg-primary text-primary-foreground grid size-7 place-items-center rounded-lg">
           <Mail className="size-4" />
         </div>
-        <span className="text-sm font-semibold tracking-tight">RFLARE</span>
+        <span className="text-sm font-semibold tracking-tight">FLARE</span>
       </div>
 
       <div className="px-3 pb-3">
@@ -208,7 +208,7 @@ export default function FolderNav({
           disabled={syncing}
         >
           <RefreshCw className={cn('size-4', syncing && 'animate-spin')} />
-          {syncing ? 'Syncing with Resend…' : 'Sync from Resend'}
+          {syncing ? 'Syncing…' : 'Sync mail'}
         </Button>
 
         <DropdownMenu>
