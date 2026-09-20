@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/logo.svg" alt="FLARE" width="420" />
+  <img src="docs/logo.svg?v=2" alt="FLARE" width="420" />
 </p>
 
 <p align="center">
@@ -57,16 +57,16 @@ runs comfortably on a laptop with no Cloudflare account at all.
 
 <table>
   <tr>
-    <td width="62%"><img src="docs/screenshots/thread-dark.png" alt="Three-pane layout with a conversation open" /></td>
-    <td width="38%"><img src="docs/screenshots/inbox-dark.png" alt="Inbox" /></td>
+    <td width="62%"><img src="docs/screenshots/thread-dark.png?v=2" alt="Three-pane layout with a conversation open" /></td>
+    <td width="38%"><img src="docs/screenshots/inbox-dark.png?v=2" alt="Inbox" /></td>
   </tr>
   <tr>
-    <td><img src="docs/screenshots/compose.png" alt="Compose sheet with attachment chips" /></td>
-    <td><img src="docs/screenshots/command-palette.png" alt="Command palette" /></td>
+    <td><img src="docs/screenshots/compose.png?v=2" alt="Compose sheet with attachment chips" /></td>
+    <td><img src="docs/screenshots/command-palette.png?v=2" alt="Command palette" /></td>
   </tr>
   <tr>
-    <td><img src="docs/screenshots/mobile-inbox.png" alt="Mobile inbox" width="70%" /></td>
-    <td><img src="docs/screenshots/mobile-thread.png" alt="Mobile thread view" width="70%" /></td>
+    <td><img src="docs/screenshots/mobile-inbox.png?v=2" alt="Mobile inbox" width="70%" /></td>
+    <td><img src="docs/screenshots/mobile-thread.png?v=2" alt="Mobile thread view" width="70%" /></td>
   </tr>
 </table>
 
@@ -188,8 +188,35 @@ declares what its API can do; the UI degrades gracefully when one is missing.
 `MAIL_ACCOUNTS` in `wrangler.jsonc` is a JSON array. Each entry names its credentials by
 environment variable, so secrets never live in the database:
 
-```jsonc
-"MAIL_ACCOUNTS": "[{\"id\":\"personal\",\"provider\":\"resend\",\"label\":\"Personal\",\"fromEmail\":\"me@example.com\",\"fromName\":\"Me\",\"inboundDomain\":\"example.com\",\"apiKeyEnv\":\"RESEND_API_KEY\",\"webhookSecretEnv\":\"RESEND_WEBHOOK_SECRET\"},{\"id\":\"work\",\"provider\":\"maileroo\",\"label\":\"Work\",\"fromEmail\":\"me@work.example\",\"inboundDomain\":\"work.example\",\"apiKeyEnv\":\"MAILEROO_API_KEY\",\"webhookSecretEnv\":\"MAILEROO_WEBHOOK_SECRET\"}]"
+```json
+[
+  {
+    "id": "personal",
+    "provider": "resend",
+    "label": "Personal",
+    "fromEmail": "me@example.com",
+    "fromName": "Me",
+    "inboundDomain": "example.com",
+    "apiKeyEnv": "RESEND_API_KEY",
+    "webhookSecretEnv": "RESEND_WEBHOOK_SECRET"
+  },
+  {
+    "id": "work",
+    "provider": "maileroo",
+    "label": "Work",
+    "fromEmail": "me@work.example",
+    "inboundDomain": "work.example",
+    "apiKeyEnv": "MAILEROO_API_KEY",
+    "webhookSecretEnv": "MAILEROO_WEBHOOK_SECRET"
+  }
+]
+```
+
+`wrangler.jsonc` takes JSON, so the value has to be that JSON as a single string. Keep the
+readable version in a scratch file and generate the string when you edit the config:
+
+```bash
+node -e "console.log(JSON.stringify(require('./accounts.json')))"
 ```
 
 Leave it empty and the app synthesises one primary account from the `RESEND_*` values, which is
