@@ -9,6 +9,7 @@ import {
 } from './threads';
 import { parseAddressList, serializeAddressList } from './mail-utils';
 import { putObject } from './attachments';
+import type { MailAccountConfig } from './accounts';
 import type { ProviderReceivedEmail, ProviderWebhookEvent } from './providers/types';
 
 export interface IngestResult {
@@ -24,17 +25,18 @@ export interface IngestResult {
  * makes both webhook retries and repeated syncs safe.
  */
 export interface IngestOptions {
+  account: MailAccountConfig;
   /** Pre-parsed email, for providers that deliver content inside the webhook. */
   email?: ProviderReceivedEmail;
 }
 
-export async function ingestReceivedEmail(emailId: string, options: IngestOptions = {}): Promise<IngestResult> {
+export async function ingestReceivedEmail(emailId: string, options: IngestOptions): Promise<IngestResult> {
   const existing = await queryOne<{ id: string }>('SELECT id FROM messages WHERE resend_email_id = ? LIMIT 1', [
     emailId,
   ]);
   if (existing) return { inserted: false, messageId: existing.id };
 
-  const provider = getMailProvider();
+  const provider = getMailProvider(options.account);
   const full = options.email ?? (await provider.getReceived(emailId));
 
   const subject = full.subject;
@@ -46,17 +48,18 @@ export async function ingestReceivedEmail(emailId: string, options: IngestOption
   let threadId: string | null = null;
   for (const candidate of [full.inReplyTo, ...full.references]) {
     if (!candidate) continue;
-    threadId = await findThreadByMessageId(candidate);
+    threadId = await findThreadByMessageId(candidate, options.account.id);
     if (threadId) break;
   }
   if (!threadId) {
-    threadId = await findThreadBySubjectAndParticipants(subject, [from, ...to]);
+    threadId = await findThreadBySubjectAndParticipants(subject, [from, ...to], options.account.id);
   }
   if (!threadId) {
     threadId = await createThread({
       subject,
       participants: [from, ...to, ...cc],
       folder: 'inbox',
+      accountId: options.account.id,
       lastMessageAt: receivedAt,
     });
   }
@@ -66,13 +69,14 @@ export async function ingestReceivedEmail(emailId: string, options: IngestOption
 
   await run(
     `INSERT INTO messages (
-       id, thread_id, resend_email_id, direction, from_address, to_addresses, cc_addresses,
+       id, thread_id, account_id, resend_email_id, direction, from_address, to_addresses, cc_addresses,
        bcc_addresses, subject, text_body, html_body, message_id_header, in_reply_to, status,
        is_read, created_at
-     ) VALUES (?, ?, ?, 'inbound', ?, ?, ?, ?, ?, ?, ?, ?, ?, 'received', 0, ?)`,
+     ) VALUES (?, ?, ?, ?, 'inbound', ?, ?, ?, ?, ?, ?, ?, ?, ?, 'received', 0, ?)`,
     [
       messageId,
       threadId,
+      options.account.id,
       emailId,
       from,
       JSON.stringify(to),
@@ -141,8 +145,8 @@ export async function ingestReceivedEmail(emailId: string, options: IngestOption
  * Handles the `email.received` webhook. Throwing here makes the webhook return
  * 500 so the provider retries; the de-duplication check inside makes retries safe.
  */
-export async function handleInbound(event: ProviderWebhookEvent): Promise<void> {
+export async function handleInbound(event: ProviderWebhookEvent, account: MailAccountConfig): Promise<void> {
   const emailId = typeof event.data.email_id === 'string' ? event.data.email_id : null;
   if (!emailId) return;
-  await ingestReceivedEmail(emailId);
+  await ingestReceivedEmail(emailId, { account });
 }

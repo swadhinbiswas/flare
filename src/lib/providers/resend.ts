@@ -13,8 +13,14 @@ import type {
   ProviderWebhookEvent,
 } from './types';
 
-export function createResendProvider(): MailProvider {
-  const client = () => getResend();
+export interface ResendConfig {
+  apiKey?: string;
+  webhookSecret?: string;
+}
+
+export function createResendProvider(config: ResendConfig = {}): MailProvider {
+  const webhookSecret = config.webhookSecret ?? env.RESEND_WEBHOOK_SECRET;
+  const client = () => getResend(config.apiKey);
 
   return {
     id: 'resend',
@@ -112,7 +118,7 @@ export function createResendProvider(): MailProvider {
     },
 
     async verifyWebhook(payload, headers, secret) {
-      const effective = secret || env.RESEND_WEBHOOK_SECRET;
+      const effective = secret || webhookSecret;
       return verifyResendWebhook(payload, headers, effective) as unknown as ProviderWebhookEvent;
     },
 

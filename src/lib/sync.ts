@@ -3,6 +3,7 @@ import { queryAll, run } from './db';
 import { ingestReceivedEmail } from './inbound';
 import { shouldAdvance } from './status';
 import { nowIso } from './threads';
+import type { MailAccountConfig } from './accounts';
 import type { MessageStatus } from './types';
 
 /**
@@ -37,8 +38,8 @@ export interface SyncResult {
   errors: string[];
 }
 
-export async function syncFromResend(limit = 25): Promise<SyncResult> {
-  const provider = getMailProvider();
+export async function syncFromResend(limit: number, account: MailAccountConfig): Promise<SyncResult> {
+  const provider = getMailProvider(account);
   const result: SyncResult = { scanned: 0, received: 0, statuses: 0, errors: [] };
 
   const list = await provider.listReceived(limit);
@@ -46,7 +47,7 @@ export async function syncFromResend(limit = 25): Promise<SyncResult> {
   for (const item of list) {
     result.scanned += 1;
     try {
-      const { inserted } = await ingestReceivedEmail(item.id);
+      const { inserted } = await ingestReceivedEmail(item.id, { account });
       if (inserted) result.received += 1;
     } catch (error) {
       result.errors.push(`${item.id}: ${error instanceof Error ? error.message : 'unknown error'}`);
@@ -55,9 +56,9 @@ export async function syncFromResend(limit = 25): Promise<SyncResult> {
 
   const outbound = await queryAll<{ id: string; resend_email_id: string; status: MessageStatus }>(
     `SELECT id, resend_email_id, status FROM messages
-      WHERE direction = 'outbound' AND resend_email_id IS NOT NULL
+      WHERE account_id = ? AND direction = 'outbound' AND resend_email_id IS NOT NULL
       ORDER BY created_at DESC LIMIT ?`,
-    [limit],
+    [account.id, limit],
   );
 
   for (const message of outbound) {

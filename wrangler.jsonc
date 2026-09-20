@@ -34,8 +34,8 @@
     //    "apiKeyEnv":"MAILEROO_API_KEY","webhookSecretEnv":"MAILEROO_WEBHOOK_SECRET"}
     // ]
     // Leave it empty to use the single account synthesised from the RESEND_* values.
-    "MAIL_ACCOUNTS": 
-  }
+    "MAIL_ACCOUNTS": ""
+  },
   // R2 is optional. To use it, enable R2 in the Cloudflare dashboard, run
   // `wrangler r2 bucket create rflare-attachments`, add the binding back and
   // set BLOB_STORE to "r2" (or "auto"):

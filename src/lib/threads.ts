@@ -31,6 +31,7 @@ function placeholders(count: number): string {
 }
 
 export async function listThreads(options: {
+  accountId: string;
   folder: Folder | 'all';
   q?: string | null;
   cursor?: string | null;
@@ -38,7 +39,8 @@ export async function listThreads(options: {
 }): Promise<ThreadListResponse> {
   const limit = Math.min(Math.max(options.limit ?? DEFAULT_PAGE_SIZE, 1), 100);
   const args: (string | number)[] = [];
-  const clauses: string[] = [];
+  const clauses: string[] = ['account_id = ?'];
+  args.push(options.accountId);
 
   if (options.folder !== 'all') {
     clauses.push('folder = ?');
@@ -127,16 +129,18 @@ export interface FolderCounts {
   inboxUnread: number;
 }
 
-export async function getFolderCounts(): Promise<FolderCounts> {
+export async function getFolderCounts(accountId: string): Promise<FolderCounts> {
   const rows = await queryAll<{ folder: string; n: number }>(
-    'SELECT folder, COUNT(*) AS n FROM threads GROUP BY folder',
+    'SELECT folder, COUNT(*) AS n FROM threads WHERE account_id = ? GROUP BY folder',
+    [accountId],
   );
   const counts: Record<Folder, number> = { inbox: 0, sent: 0, archive: 0, trash: 0 };
   for (const row of rows) {
     if (row.folder in counts) counts[row.folder as Folder] = asNumber(row.n);
   }
   const unread = await queryOne<{ n: number }>(
-    `SELECT COALESCE(SUM(unread_count), 0) AS n FROM threads WHERE folder = 'inbox'`,
+    `SELECT COALESCE(SUM(unread_count), 0) AS n FROM threads WHERE account_id = ? AND folder = 'inbox'`,
+    [accountId],
   );
   return { counts, inboxUnread: asNumber(unread?.n ?? 0) };
 }
@@ -165,9 +169,11 @@ function rewriteCidReferences(html: string | null, attachments: ReturnType<typeo
 
 export async function getThreadDetail(
   threadId: string,
-  options: { markRead?: boolean } = {},
+  options: { markRead?: boolean; accountId?: string } = {},
 ): Promise<ThreadDetailDto | null> {
-  const thread = await queryOne<ThreadRow>('SELECT * FROM threads WHERE id = ?', [threadId]);
+  const thread = options.accountId
+    ? await queryOne<ThreadRow>('SELECT * FROM threads WHERE id = ? AND account_id = ?', [threadId, options.accountId])
+    : await queryOne<ThreadRow>('SELECT * FROM threads WHERE id = ?', [threadId]);
   if (!thread) return null;
 
   const messages = await queryAll<MessageRow>(
@@ -302,14 +308,14 @@ export async function threadAttachmentKeys(threadId: string): Promise<string[]> 
 }
 
 /** Find a thread by an RFC Message-ID (In-Reply-To / References / header). */
-export async function findThreadByMessageId(messageIdValue: string): Promise<string | null> {
+export async function findThreadByMessageId(messageIdValue: string, accountId: string): Promise<string | null> {
   const raw = messageIdValue.trim().replace(/^<|>$/g, '');
   if (!raw) return null;
   const row = await queryOne<{ thread_id: string }>(
     `SELECT thread_id FROM messages
-      WHERE message_id_header = ? OR message_id_header = ?
+      WHERE account_id = ? AND (message_id_header = ? OR message_id_header = ?)
       ORDER BY created_at DESC LIMIT 1`,
-    [raw, `<${raw}>`],
+    [accountId, raw, `<${raw}>`],
   );
   return row?.thread_id ?? null;
 }
@@ -318,13 +324,15 @@ export async function findThreadByMessageId(messageIdValue: string): Promise<str
 export async function findThreadBySubjectAndParticipants(
   subject: string,
   participants: string[],
+  accountId: string,
 ): Promise<string | null> {
   if (!subject.trim()) return null;
   const participantEmails = participants.map(emailOf).filter(Boolean);
   if (participantEmails.length === 0) return null;
 
   const rows = await queryAll<{ id: string; subject: string; participants: string }>(
-    `SELECT id, subject, participants FROM threads WHERE folder != 'trash' ORDER BY last_message_at DESC LIMIT 200`,
+    `SELECT id, subject, participants FROM threads WHERE account_id = ? AND folder != 'trash' ORDER BY last_message_at DESC LIMIT 200`,
+    [accountId],
   );
   for (const row of rows) {
     if (!subjectsMatch(row.subject, subject)) continue;
@@ -338,14 +346,23 @@ export async function createThread(input: {
   subject: string;
   participants: string[];
   folder: Folder;
+  accountId: string;
   lastMessageAt?: string;
 }): Promise<string> {
   const id = crypto.randomUUID();
   const timestamp = input.lastMessageAt ?? nowIso();
   await run(
-    `INSERT INTO threads (id, subject, participants, last_message_at, folder, unread_count, created_at)
-     VALUES (?, ?, ?, ?, ?, 0, ?)`,
-    [id, input.subject.slice(0, 500), serializeAddressList(input.participants), timestamp, input.folder, timestamp],
+    `INSERT INTO threads (id, subject, participants, last_message_at, folder, unread_count, created_at, account_id)
+     VALUES (?, ?, ?, ?, ?, 0, ?, ?)`,
+    [
+      id,
+      input.subject.slice(0, 500),
+      serializeAddressList(input.participants),
+      timestamp,
+      input.folder,
+      timestamp,
+      input.accountId,
+    ],
   );
   return id;
 }
@@ -367,4 +384,12 @@ export async function touchThread(
 
 export async function getThreadRow(threadId: string): Promise<ThreadRow | null> {
   return queryOne<ThreadRow>('SELECT * FROM threads WHERE id = ?', [threadId]);
+}
+
+export async function threadBelongsToAccount(threadId: string, accountId: string): Promise<boolean> {
+  const row = await queryOne<{ id: string }>('SELECT id FROM threads WHERE id = ? AND account_id = ?', [
+    threadId,
+    accountId,
+  ]);
+  return Boolean(row);
 }

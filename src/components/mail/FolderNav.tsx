@@ -5,6 +5,7 @@ import {
   LogOut,
   Mail,
   Moon,
+  ChevronUp,
   PenLine,
   RefreshCw,
   Search,
@@ -32,6 +33,7 @@ import { apiFetch } from '@/lib/client';
 import { avatarSrc } from '@/lib/avatar';
 import { initials } from '@/lib/format';
 import { THEMES, type ThemeId } from '@/lib/theme';
+import type { AccountSummary } from '@/lib/accounts';
 import { cn } from '@/lib/utils';
 import type { Folder, SessionUser } from '@/lib/types';
 import type { FolderCounts } from '@/lib/threads';
@@ -42,9 +44,12 @@ interface FolderNavProps {
   user: SessionUser;
   theme: 'light' | 'dark';
   themeId: ThemeId;
+  accounts: AccountSummary[];
+  activeAccountId: string;
   syncing: boolean;
   onToggleTheme: () => void;
   onThemeChange: (id: ThemeId) => void;
+  onSwitchAccount: (id: string) => void;
   onCompose: () => void;
   onOpenPalette: () => void;
   onSync: () => void;
@@ -63,9 +68,12 @@ export default function FolderNav({
   user,
   theme,
   themeId,
+  accounts,
+  activeAccountId,
   syncing,
   onToggleTheme,
   onThemeChange,
+  onSwitchAccount,
   onCompose,
   onOpenPalette,
   onSync,
@@ -139,6 +147,51 @@ export default function FolderNav({
       </ul>
 
       <div className="mt-auto p-3">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              className="hover:bg-accent/60 flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors"
+            >
+              <Mail className="text-muted-foreground size-4" />
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-xs font-medium">
+                  {accounts.find((item) => item.id === activeAccountId)?.label ?? 'Mail account'}
+                </span>
+                <span className="text-muted-foreground block truncate text-[10px]">
+                  {accounts.find((item) => item.id === activeAccountId)?.provider ?? ''}
+                </span>
+              </span>
+              <ChevronUp className="text-muted-foreground size-3.5" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" side="top" className="w-60">
+            <DropdownMenuLabel>Mail account</DropdownMenuLabel>
+            <DropdownMenuRadioGroup value={activeAccountId} onValueChange={onSwitchAccount}>
+              {accounts.map((item) => (
+                <DropdownMenuRadioItem key={item.id} value={item.id}>
+                  <span className="flex flex-col">
+                    {item.label}
+                    <span className="text-muted-foreground text-[10px]">
+                      {item.provider}
+                      {item.inboundDomain ? ` · ${item.inboundDomain}` : ''}
+                      {item.configured ? '' : ' · no API key'}
+                    </span>
+                  </span>
+                </DropdownMenuRadioItem>
+              ))}
+            </DropdownMenuRadioGroup>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onClick={() => {
+                window.location.href = '/settings#accounts';
+              }}
+            >
+              <Settings /> Manage accounts
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+
         <Button variant="ghost" size="sm" className="text-muted-foreground w-full justify-start gap-2" onClick={onOpenPalette}>
           <Search className="size-4" />
           Search & commands

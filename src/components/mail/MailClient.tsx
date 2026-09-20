@@ -15,6 +15,7 @@ import { fullDateTime } from '@/lib/format';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { emailOf, htmlToPreview, normalizeSubject } from '@/lib/mail-utils';
 import { applyColorMode, applyTheme, readColorMode, readThemeId, type ThemeId } from '@/lib/theme';
+import type { AccountSummary } from '@/lib/accounts';
 import type { FolderCounts } from '@/lib/threads';
 import type { Folder, MessageDto, SessionUser, ThreadDetailDto, ThreadListResponse, ThreadSummaryDto } from '@/lib/types';
 
@@ -24,6 +25,8 @@ type ThreadDetailResponse = ThreadDetailDto & { counts: FolderCounts };
 interface MailClientProps {
   user: SessionUser;
   folder: Folder;
+  accounts: AccountSummary[];
+  activeAccountId: string;
   initialThreads: ThreadSummaryDto[];
   initialNextCursor: string | null;
   initialCounts: FolderCounts;
@@ -71,7 +74,7 @@ function buildReplyDraft(user: SessionUser, message: MessageDto, mode: 'reply' |
 }
 
 export default function MailClient(props: MailClientProps) {
-  const { user, folder } = props;
+  const { user, folder, accounts, activeAccountId } = props;
 
   const [threads, setThreads] = useState(props.initialThreads);
   const [nextCursor, setNextCursor] = useState(props.initialNextCursor);
@@ -490,6 +493,17 @@ export default function MailClient(props: MailClientProps) {
     openThread,
   ]);
 
+  const switchAccount = useCallback(async (id: string) => {
+    if (id === activeAccountId) return;
+    try {
+      await apiFetch('/api/accounts', { method: 'POST', ...jsonBody({ id }) });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Could not switch account');
+      return;
+    }
+    window.location.href = '/';
+  }, [activeAccountId]);
+
   const onSignOut = useCallback(async () => {
     try {
       await apiFetch('/api/auth/logout', { method: 'POST' });
@@ -552,9 +566,12 @@ export default function MailClient(props: MailClientProps) {
             user={user}
             theme={theme}
             themeId={themeId}
+            accounts={accounts}
+            activeAccountId={activeAccountId}
             syncing={syncing}
             onToggleTheme={toggleTheme}
             onThemeChange={changeTheme}
+            onSwitchAccount={(id) => void switchAccount(id)}
             onCompose={startCompose}
             onOpenPalette={() => setPaletteOpen(true)}
             onSync={() => void syncFromResend()}
@@ -572,9 +589,12 @@ export default function MailClient(props: MailClientProps) {
               user={user}
               theme={theme}
               themeId={themeId}
+              accounts={accounts}
+              activeAccountId={activeAccountId}
               syncing={syncing}
               onToggleTheme={toggleTheme}
               onThemeChange={changeTheme}
+              onSwitchAccount={(id) => void switchAccount(id)}
               onCompose={startCompose}
               onOpenPalette={() => setPaletteOpen(true)}
               onSync={() => void syncFromResend()}

@@ -11,6 +11,7 @@ import {
   touchThread,
 } from './threads';
 import { formatFrom, isValidEmail, renderComposeBody, stripMessageId } from './mail-utils';
+import type { MailAccountConfig } from './accounts';
 import type { MessageStatus, SendMessageInput, SessionUser } from './types';
 
 export class SendError extends Error {
@@ -60,8 +61,9 @@ export async function sendMessage(params: {
   user: SessionUser;
   input: SendMessageInput;
   displayName: string;
+  account: MailAccountConfig;
 }): Promise<SendResult> {
-  const { user, input, displayName } = params;
+  const { user, input, displayName, account } = params;
   const errors = validateSendInput(input);
   if (errors.length > 0) throw new SendError(errors[0] as string, errors.join(' '));
 
@@ -75,16 +77,17 @@ export async function sendMessage(params: {
     throw new SendError('Thread not found.');
   }
   if (!threadId && input.inReplyTo) {
-    threadId = await findThreadByMessageId(input.inReplyTo);
+    threadId = await findThreadByMessageId(input.inReplyTo, account.id);
   }
   if (!threadId) {
-    threadId = await findThreadBySubjectAndParticipants(input.subject ?? '', [user.email, ...to, ...cc]);
+    threadId = await findThreadBySubjectAndParticipants(input.subject ?? '', [user.email, ...to, ...cc], account.id);
   }
   if (!threadId) {
     threadId = await createThread({
       subject: input.subject ?? '',
       participants: [user.email, ...to, ...cc, ...bcc],
       folder: 'sent',
+      accountId: account.id,
     });
   }
 
@@ -99,14 +102,15 @@ export async function sendMessage(params: {
   const createdAt = nowIso();
   await run(
     `INSERT INTO messages (
-       id, thread_id, resend_email_id, direction, from_address, to_addresses, cc_addresses,
+       id, thread_id, account_id, resend_email_id, direction, from_address, to_addresses, cc_addresses,
        bcc_addresses, subject, text_body, html_body, message_id_header, in_reply_to, status,
        is_read, created_at
-     ) VALUES (?, ?, NULL, 'outbound', ?, ?, ?, ?, ?, ?, ?, NULL, ?, 'queued', 1, ?)`,
+     ) VALUES (?, ?, ?, NULL, 'outbound', ?, ?, ?, ?, ?, ?, ?, NULL, ?, 'queued', 1, ?)`,
     [
       messageId,
       threadId,
-      formatFrom(user.email, displayName),
+      account.id,
+      formatFrom(account.fromEmail || user.email, account.fromName || displayName),
       JSON.stringify(to),
       JSON.stringify(cc),
       JSON.stringify(bcc),
@@ -147,11 +151,11 @@ export async function sendMessage(params: {
     : undefined;
 
   // --- Send ----------------------------------------------------------------
-  const provider = getMailProvider();
+  const provider = getMailProvider(account);
   let providerMessageId: string;
   try {
     const sent = await provider.send({
-      from: formatFrom(user.email, displayName),
+      from: formatFrom(account.fromEmail || user.email, account.fromName || displayName),
       to,
       ...(cc.length ? { cc } : {}),
       ...(bcc.length ? { bcc } : {}),

@@ -3,6 +3,7 @@ import { env } from 'cloudflare:workers';
 import { apiHandler, badRequest, errorResponse, json, readJsonBody } from '@/lib/api';
 import { SendError, sendMessage } from '@/lib/send';
 import type { SendMessageInput } from '@/lib/types';
+import { getActiveAccount } from '@/lib/accounts';
 
 export const POST: APIRoute = apiHandler(async ({ request, locals }) => {
   const user = locals.user;
@@ -16,6 +17,7 @@ export const POST: APIRoute = apiHandler(async ({ request, locals }) => {
       user,
       input,
       displayName: user.displayName?.trim() || env.MAIL_FROM_NAME || 'RFLARE',
+      account: getActiveAccount(request.headers.get('cookie')),
     });
     return json(result);
   } catch (error) {

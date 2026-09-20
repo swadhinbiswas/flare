@@ -2,15 +2,18 @@
 import AppShell from '@/layouts/AppShell.astro';
 import MailClient from '@/components/mail/MailClient';
 import { getFolderCounts, getThreadDetail, listThreads } from '@/lib/threads';
+import { accountSummaries, getActiveAccount } from '@/lib/accounts';
 
 const user = Astro.locals.user!;
+const account = getActiveAccount(Astro.request.headers.get('cookie'));
+const accounts = accountSummaries();
 const id = Astro.params.id;
 if (!id) return Astro.redirect('/');
 
-const detail = await getThreadDetail(id, { markRead: true });
+const detail = await getThreadDetail(id, { markRead: true, accountId: account.id });
 if (!detail) return Astro.redirect('/');
 
-const [result, counts] = await Promise.all([listThreads({ folder: 'inbox' }), getFolderCounts()]);
+const [result, counts] = await Promise.all([listThreads({ accountId: account.id, folder: 'inbox' }), getFolderCounts(account.id)]);
 ---
 
 <AppShell title={`${detail.thread.subject || 'Conversation'} · RFLARE`}>
@@ -21,6 +24,8 @@ const [result, counts] = await Promise.all([listThreads({ folder: 'inbox' }), ge
     initialThreads={result.threads}
     initialNextCursor={result.nextCursor}
     initialCounts={counts}
+    accounts={accounts}
+    activeAccountId={account.id}
     initialThreadId={id}
     initialThread={detail}
   />

@@ -2,9 +2,12 @@
 import AppShell from '@/layouts/AppShell.astro';
 import MailClient from '@/components/mail/MailClient';
 import { getFolderCounts, listThreads } from '@/lib/threads';
+import { accountSummaries, getActiveAccount } from '@/lib/accounts';
 
 const user = Astro.locals.user!;
-const [result, counts] = await Promise.all([listThreads({ folder: 'archive' }), getFolderCounts()]);
+const account = getActiveAccount(Astro.request.headers.get('cookie'));
+const accounts = accountSummaries();
+const [result, counts] = await Promise.all([listThreads({ accountId: account.id, folder: 'archive' }), getFolderCounts(account.id)]);
 ---
 
 <AppShell title="Archive · RFLARE">
@@ -15,5 +18,7 @@ const [result, counts] = await Promise.all([listThreads({ folder: 'archive' }), 
     initialThreads={result.threads}
     initialNextCursor={result.nextCursor}
     initialCounts={counts}
+    accounts={accounts}
+    activeAccountId={account.id}
   />
 </AppShell>

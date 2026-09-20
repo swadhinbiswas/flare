@@ -33,6 +33,7 @@ export type MessageStatus =
 
 export interface ThreadRow {
   id: string;
+  account_id: string;
   subject: string;
   participants: string; // JSON array
   last_message_at: string;
@@ -44,6 +45,7 @@ export interface ThreadRow {
 export interface MessageRow {
   id: string;
   thread_id: string;
+  account_id: string;
   resend_email_id: string | null;
   direction: Direction;
   from_address: string;

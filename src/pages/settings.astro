@@ -7,12 +7,15 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { getMailProvider } from '@/lib/providers';
+import { accountSummaries, getActiveAccount } from '@/lib/accounts';
 import ProfileForm from '@/components/settings/ProfileForm';
 
 const user = Astro.locals.user!;
-const provider = getMailProvider();
-const webhookUrl = new URL('/api/webhooks/resend', env.PUBLIC_APP_URL).toString();
-const inboundDomain = env.RESEND_INBOUND_DOMAIN;
+const account = getActiveAccount(Astro.request.headers.get('cookie'));
+const accounts = accountSummaries();
+const provider = getMailProvider(account);
+const webhookUrl = new URL(`/api/webhooks/${account.provider}/${account.id}`, env.PUBLIC_APP_URL).toString();
+const inboundDomain = account.inboundDomain ?? env.RESEND_INBOUND_DOMAIN;
 
 type DomainInfo = { name: string; status: string; region?: string; sending?: string; receiving?: string };
 type WebhookInfo = { endpoint: string; events: string[] | null };
@@ -105,6 +108,41 @@ const domainHealthy = domain?.status === 'verified' && sendingEnabled && receivi
         </CardHeader>
         <CardContent>
           <ProfileForm client:load user={user} />
+        </CardContent>
+      </Card>
+
+      <Card id="accounts">
+        <CardHeader>
+          <CardTitle>Mail accounts</CardTitle>
+          <CardDescription>
+            Each account is a provider plus a From address. Accounts come from the
+            <code class="text-xs">MAIL_ACCOUNTS</code> variable; credentials stay in Wrangler secrets.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3 text-sm">
+          {accounts.map((item) => (
+            <div class="flex items-center justify-between gap-4">
+              <span>
+                <span class="block font-medium">
+                  {item.label}
+                  {item.id === account.id ? ' · active' : ''}
+                </span>
+                <span class="text-muted-foreground block text-xs">
+                  {item.provider}
+                  {item.fromEmail ? ` · from ${item.fromEmail}` : ''}
+                  {item.inboundDomain ? ` · ${item.inboundDomain}` : ''}
+                </span>
+              </span>
+              <Badge variant={item.configured ? 'success' : 'warning'}>
+                {item.configured ? 'configured' : 'missing API key'}
+              </Badge>
+            </div>
+          ))}
+          <p class="text-muted-foreground text-xs">
+            Add an account by extending <code class="text-xs">MAIL_ACCOUNTS</code> with an id, a provider
+            (resend or maileroo), a From address and the names of its credential variables. Switch accounts from the
+            sidebar. Each account gets its own webhook endpoint, shown below.
+          </p>
         </CardContent>
       </Card>
 

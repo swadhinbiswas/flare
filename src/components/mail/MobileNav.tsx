@@ -9,6 +9,7 @@ import { apiFetch } from '@/lib/client';
 import { avatarSrc } from '@/lib/avatar';
 import { initials } from '@/lib/format';
 import { THEMES, type ThemeId } from '@/lib/theme';
+import type { AccountSummary } from '@/lib/accounts';
 import { cn } from '@/lib/utils';
 import type { Folder, SessionUser } from '@/lib/types';
 import type { FolderCounts } from '@/lib/threads';
@@ -19,9 +20,12 @@ interface MobileNavProps {
   user: SessionUser;
   theme: 'light' | 'dark';
   themeId: ThemeId;
+  accounts: AccountSummary[];
+  activeAccountId: string;
   syncing: boolean;
   onToggleTheme: () => void;
   onThemeChange: (id: ThemeId) => void;
+  onSwitchAccount: (id: string) => void;
   onCompose: () => void;
   onOpenPalette: () => void;
   onSync: () => void;
@@ -42,9 +46,12 @@ export default function MobileNav({
   user,
   theme,
   themeId,
+  accounts,
+  activeAccountId,
   syncing,
   onToggleTheme,
   onThemeChange,
+  onSwitchAccount,
   onCompose,
   onOpenPalette,
   onSync,
@@ -142,6 +149,42 @@ export default function MobileNav({
               {syncing ? 'Syncing with Resend…' : 'Sync from Resend'}
             </Button>
           </div>
+          <div className="px-3 py-1">
+            <p className="text-muted-foreground px-1 pb-1.5 text-[11px] font-medium tracking-wide uppercase">
+              Mail account
+            </p>
+            <div className="flex flex-col gap-1">
+              {accounts.map((item) => {
+                const active = item.id === activeAccountId;
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => {
+                      setOpen(false);
+                      onSwitchAccount(item.id);
+                    }}
+                    className={cn(
+                      'flex items-center justify-between gap-2 rounded-md border px-2.5 py-1.5 text-left text-xs transition-colors',
+                      active
+                        ? 'border-primary/50 bg-primary/10 text-foreground'
+                        : 'border-border text-muted-foreground hover:bg-accent/50',
+                    )}
+                  >
+                    <span className="min-w-0">
+                      <span className="block truncate font-medium">{item.label}</span>
+                      <span className="text-muted-foreground block truncate text-[10px]">
+                        {item.provider}
+                        {item.inboundDomain ? ` · ${item.inboundDomain}` : ''}
+                      </span>
+                    </span>
+                    {active ? <Check className="text-primary size-3.5 shrink-0" /> : null}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
           <Separator className="my-2" />
           <div className="mt-auto px-3 pb-5">
             <div className="flex items-center gap-2.5 px-1 py-2">
