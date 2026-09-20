@@ -24,8 +24,16 @@ export async function apiFetch<T>(url: string, init: RequestInit = {}): Promise<
       (body && typeof body === 'object' && 'error' in body && typeof body.error === 'string'
         ? body.error
         : null) ?? `Request failed (${response.status})`;
-    if (response.status === 401 && typeof window !== 'undefined') {
-      window.location.href = `/login?next=${encodeURIComponent(window.location.pathname)}`;
+    // Session expired mid-session: bounce to login. Auth endpoints are excluded
+    // so a failed sign-in can render its error instead of reloading the page.
+    const isAuthAttempt = url.startsWith('/api/auth/');
+    if (
+      response.status === 401 &&
+      !isAuthAttempt &&
+      typeof window !== 'undefined' &&
+      window.location.pathname !== '/login'
+    ) {
+      window.location.href = `/login?next=${encodeURIComponent(window.location.pathname + window.location.search)}`;
     }
     throw new ApiError(message, response.status);
   }
