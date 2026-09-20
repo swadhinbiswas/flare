@@ -1,6 +1,5 @@
 import type { APIRoute } from 'astro';
-import { env } from 'cloudflare:workers';
-import { handleInbound } from '@/lib/inbound';
+import { handleInbound, ingestReceivedEmail } from '@/lib/inbound';
 import { recordStatusEvent } from '@/lib/events';
 import { getMailProvider } from '@/lib/providers';
 
@@ -18,9 +17,22 @@ export const POST: APIRoute = async ({ request }) => {
   const payload = await request.text();
   const provider = getMailProvider();
 
+  // Providers without a signature scheme hand the whole message over in the
+  // webhook payload; they authenticate by being parsed and validated.
+  if (provider.classifyWebhook?.(payload) === 'inbound' && provider.parseInbound) {
+    try {
+      const email = await provider.parseInbound(payload);
+      await ingestReceivedEmail(email.id, { email });
+      return new Response('ok');
+    } catch (error) {
+      console.error('[webhook] inbound handling failed', error);
+      return new Response('Inbound handling failed', { status: 400 });
+    }
+  }
+
   let event;
   try {
-    event = provider.verifyWebhook(payload, request.headers, env.RESEND_WEBHOOK_SECRET);
+    event = await provider.verifyWebhook(payload, request.headers, '');
   } catch (error) {
     console.warn('[webhook] signature verification failed', error);
     return new Response('Invalid webhook signature', { status: 400 });

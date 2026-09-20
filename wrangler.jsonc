@@ -25,7 +25,16 @@
     // interface in src/lib/providers makes room for more.
     "MAIL_PROVIDER": "resend",
     // Attachment storage: "database" (default, no R2 needed), "r2" or "auto".
-    "BLOB_STORE": "database"
+    "BLOB_STORE": "database",
+    // Extra mail accounts, as a JSON array. Each entry needs an id, a provider,
+    // a from address and the env var names that hold its secrets:
+    // [
+    //   {"id":"work","provider":"maileroo","label":"Work","fromEmail":"me@work.example",
+    //    "fromName":"Me","inboundDomain":"work.example",
+    //    "apiKeyEnv":"MAILEROO_API_KEY","webhookSecretEnv":"MAILEROO_WEBHOOK_SECRET"}
+    // ]
+    // Leave it empty to use the single account synthesised from the RESEND_* values.
+    "MAIL_ACCOUNTS": 
   }
   // R2 is optional. To use it, enable R2 in the Cloudflare dashboard, run
   // `wrangler r2 bucket create rflare-attachments`, add the binding back and
@@ -34,5 +43,5 @@
   // "r2_buckets": [{ "binding": "ATTACHMENTS", "bucket_name": "rflare-attachments" }]
   // Secrets (set with `wrangler secret put` in production, or in .dev.vars locally):
   // RESEND_API_KEY, RESEND_WEBHOOK_SECRET, TURSO_DATABASE_URL, TURSO_AUTH_TOKEN,
-  // SESSION_SECRET
+  // SESSION_SECRET, MAILEROO_API_KEY, MAILEROO_WEBHOOK_SECRET
 }

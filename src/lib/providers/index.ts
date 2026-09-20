@@ -1,4 +1,5 @@
 import { env } from 'cloudflare:workers';
+import { createMailerooProvider } from './maileroo';
 import { createResendProvider } from './resend';
 import type { MailProvider } from './types';
 
@@ -11,6 +12,9 @@ export function getMailProvider(): MailProvider {
   if (cached) return cached;
   const id = (env.MAIL_PROVIDER ?? 'resend').toLowerCase();
   switch (id) {
+    case 'maileroo':
+      cached = createMailerooProvider();
+      break;
     case 'resend':
     default:
       cached = createResendProvider();

@@ -9,6 +9,8 @@ export interface ProviderReceivedAttachment {
   contentType: string;
   size: number | null;
   contentId: string | null;
+  /** Signed URL when the provider hands over the bytes directly. */
+  downloadUrl?: string | null;
 }
 
 export interface ProviderReceivedEmail {
@@ -26,6 +28,8 @@ export interface ProviderReceivedEmail {
   references: string[];
   createdAt: string;
   attachments: ProviderReceivedAttachment[];
+  /** Provider URL that purges their stored copy, when offered. */
+  deletionUrl?: string | null;
 }
 
 export interface ProviderReceivedSummary {
@@ -107,7 +111,11 @@ export interface MailProvider {
   getAttachmentContent(input: { emailId: string; attachmentId: string }): Promise<ArrayBuffer>;
 
   // Webhooks
-  verifyWebhook(payload: string, headers: Headers, secret: string): ProviderWebhookEvent;
+  verifyWebhook(payload: string, headers: Headers, secret: string): Promise<ProviderWebhookEvent>;
+  /** Some providers deliver inbound mail as the webhook itself. */
+  classifyWebhook?(payload: string): 'inbound' | 'status' | 'unknown';
+  parseInbound?(payload: string): Promise<ProviderReceivedEmail>;
+  finalizeInbound?(email: ProviderReceivedEmail): Promise<void>;
 
   // Account and deliverability
   listDomains(): Promise<ProviderDomain[]>;

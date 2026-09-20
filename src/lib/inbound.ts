@@ -9,7 +9,7 @@ import {
 } from './threads';
 import { parseAddressList, serializeAddressList } from './mail-utils';
 import { putObject } from './attachments';
-import type { ProviderWebhookEvent } from './providers/types';
+import type { ProviderReceivedEmail, ProviderWebhookEvent } from './providers/types';
 
 export interface IngestResult {
   inserted: boolean;
@@ -23,14 +23,19 @@ export interface IngestResult {
  * from separate provider calls. De-duplication is by `resend_email_id`, which
  * makes both webhook retries and repeated syncs safe.
  */
-export async function ingestReceivedEmail(emailId: string): Promise<IngestResult> {
+export interface IngestOptions {
+  /** Pre-parsed email, for providers that deliver content inside the webhook. */
+  email?: ProviderReceivedEmail;
+}
+
+export async function ingestReceivedEmail(emailId: string, options: IngestOptions = {}): Promise<IngestResult> {
   const existing = await queryOne<{ id: string }>('SELECT id FROM messages WHERE resend_email_id = ? LIMIT 1', [
     emailId,
   ]);
   if (existing) return { inserted: false, messageId: existing.id };
 
   const provider = getMailProvider();
-  const full = await provider.getReceived(emailId);
+  const full = options.email ?? (await provider.getReceived(emailId));
 
   const subject = full.subject;
   const from = full.from;
@@ -86,7 +91,13 @@ export async function ingestReceivedEmail(emailId: string): Promise<IngestResult
   for (const attachment of full.attachments) {
     const key = `inbound/${emailId}/${attachment.id}`;
     try {
-      const buffer = await provider.getAttachmentContent({ emailId, attachmentId: attachment.id });
+      const buffer = attachment.downloadUrl
+        ? await (async () => {
+            const response = await fetch(attachment.downloadUrl as string);
+            if (!response.ok) throw new Error(`attachment download failed with ${response.status}`);
+            return response.arrayBuffer();
+          })()
+        : await provider.getAttachmentContent({ emailId, attachmentId: attachment.id });
       await putObject(key, buffer, attachment.contentType);
       await run(
         `INSERT INTO attachments (id, message_id, filename, content_type, size_bytes, r2_key, content_id, created_at)
@@ -106,6 +117,8 @@ export async function ingestReceivedEmail(emailId: string): Promise<IngestResult
       console.warn(`[inbound] failed to store attachment ${attachment.id} (${attachment.filename})`, attachmentError);
     }
   }
+
+  await provider.finalizeInbound?.(full);
 
   // --- Thread bookkeeping ---------------------------------------------------
   const participants = [...parseAddressList(thread?.participants ?? '[]'), from, ...to, ...cc];

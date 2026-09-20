@@ -111,8 +111,9 @@ export function createResendProvider(): MailProvider {
       return response.arrayBuffer();
     },
 
-    verifyWebhook(payload, headers, secret) {
-      return verifyResendWebhook(payload, headers, secret) as unknown as ProviderWebhookEvent;
+    async verifyWebhook(payload, headers, secret) {
+      const effective = secret || env.RESEND_WEBHOOK_SECRET;
+      return verifyResendWebhook(payload, headers, effective) as unknown as ProviderWebhookEvent;
     },
 
     async listDomains() {
