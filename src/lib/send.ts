@@ -31,6 +31,15 @@ export interface SendResult {
   status: MessageStatus;
 }
 
+function normalizeScheduledAt(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const timestamp = Date.parse(value);
+  if (Number.isNaN(timestamp)) return null;
+  // Anything in the past (or within a minute) just sends now.
+  if (timestamp < Date.now() + 60_000) return null;
+  return new Date(timestamp).toISOString();
+}
+
 export function validateSendInput(input: SendMessageInput): string[] {
   const errors: string[] = [];
   const to = (input.to ?? []).map((value) => value.trim()).filter(Boolean);
@@ -94,6 +103,7 @@ export async function sendMessage(params: {
   const thread = await getThreadRow(threadId);
   const subject = input.subject?.trim() || (thread?.subject ? `Re: ${thread.subject}` : '(no subject)');
 
+  const scheduledAt = normalizeScheduledAt(input.scheduledAt);
   const html = input.html?.trim() ? input.html : input.text?.trim() ? renderComposeBody(input.text) : null;
   const text = input.text?.trim() ? input.text : null;
 
@@ -105,7 +115,7 @@ export async function sendMessage(params: {
        id, thread_id, account_id, resend_email_id, direction, from_address, to_addresses, cc_addresses,
        bcc_addresses, subject, text_body, html_body, message_id_header, in_reply_to, status,
        is_read, created_at
-     ) VALUES (?, ?, ?, NULL, 'outbound', ?, ?, ?, ?, ?, ?, ?, NULL, ?, 'queued', 1, ?)`,
+     ) VALUES (?, ?, ?, NULL, 'outbound', ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, 1, ?)`,
     [
       messageId,
       threadId,
@@ -118,6 +128,7 @@ export async function sendMessage(params: {
       text,
       html,
       stripMessageId(input.inReplyTo),
+      scheduledAt ? 'scheduled' : 'queued',
       createdAt,
     ],
   );
@@ -164,6 +175,7 @@ export async function sendMessage(params: {
       ...(text ? { text } : {}),
       ...(payloadAttachments ? { attachments: payloadAttachments } : {}),
       ...(replyHeaders ? { headers: replyHeaders } : {}),
+      ...(scheduledAt ? { scheduledAt } : {}),
     });
     providerMessageId = sent.id;
   } catch (error) {
@@ -174,12 +186,22 @@ export async function sendMessage(params: {
     throw new SendError(`Sending failed: ${detail}`);
   }
 
-  await run(`UPDATE messages SET resend_email_id = ?, status = 'sent' WHERE id = ?`, [providerMessageId, messageId]);
-  await recordSendEvent(messageId, 'email.sent', { id: providerMessageId, subject, to });
+  const finalStatus = scheduledAt ? 'scheduled' : 'sent';
+  await run(`UPDATE messages SET resend_email_id = ?, status = ? WHERE id = ?`, [
+    providerMessageId,
+    finalStatus,
+    messageId,
+  ]);
+  await recordSendEvent(messageId, scheduledAt ? 'email.scheduled' : 'email.sent', {
+    id: providerMessageId,
+    subject,
+    to,
+    ...(scheduledAt ? { scheduled_at: scheduledAt } : {}),
+  });
   await addParticipants(threadId, [user.email, ...to, ...cc, ...bcc]);
   await touchThread(threadId, { lastMessageAt: createdAt });
 
-  return { messageId, threadId, resendEmailId: providerMessageId, status: 'sent' };
+  return { messageId, threadId, resendEmailId: providerMessageId, status: finalStatus };
 }
 
 export async function messageExistsForResendId(resendEmailId: string): Promise<boolean> {

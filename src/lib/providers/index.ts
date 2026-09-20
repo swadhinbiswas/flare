@@ -6,8 +6,6 @@ import type { MailAccountConfig } from '../accounts';
 
 export type { MailProvider } from './types';
 
-const cache = new Map<string, MailProvider>();
-
 function build(account: MailAccountConfig | null, envProvider: string): MailProvider {
   const providerId = (account?.provider ?? envProvider).toLowerCase();
   const apiKey = account ? readSecret(account.apiKeyEnv) : undefined;
@@ -32,11 +30,9 @@ function readSecret(name: string): string {
  * without one it falls back to MAIL_PROVIDER and the RESEND_* environment.
  */
 export function getMailProvider(account?: MailAccountConfig | null): MailProvider {
+  // Built per call on purpose: the providers are thin wrappers (the SDK clients
+  // and credentials they touch are cached), and a module-level cache here served
+  // stale code during hot reloads.
   const envProvider = (env.MAIL_PROVIDER ?? 'resend').toLowerCase();
-  const key = account ? `${account.id}:${account.provider}` : `env:${envProvider}`;
-  const cached = cache.get(key);
-  if (cached) return cached;
-  const provider = build(account ?? null, envProvider);
-  cache.set(key, provider);
-  return provider;
+  return build(account ?? null, envProvider);
 }

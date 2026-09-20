@@ -47,6 +47,8 @@ Light theme is one click away in the account menu, and delivery status is visibl
 - **Track delivery** per message: `queued → sent → delivered → opened → clicked`, with bounced,
   complained and failed as terminal states. The status only moves forward, so a late webhook can
   never walk a delivered message back to sent.
+- **Schedule sends** from the composer and cancel them before they leave, straight from the conversation.
+- **Provider tools** in Settings: webhook registration with the signing secret, suppression list management, and 7 day deliverability metrics.
 - **Sync from Resend** pulls the recent picture on demand: received emails that predate the
   webhook are imported and outbound statuses refresh from the API. It also runs by itself once a
   minute while the app is open, so new mail shows up without a webhook.
@@ -149,7 +151,8 @@ Non-secret values live in `wrangler.jsonc` under `vars`:
 | `RESEND_INBOUND_DOMAIN` | `mail.example.com` | Verified sending/receiving domain |
 | `MAIL_FROM_NAME` | `RFLARE` | Fallback From display name when the profile has none |
 | `PUBLIC_APP_URL` | `https://rflare.example.com` | Used for the webhook URL shown in Settings |
-| `MAIL_PROVIDER` | `resend` | Mail backend; only `resend` ships today |
+| `MAIL_PROVIDER` | `resend` | Default backend for the synthesised account (`resend` or `maileroo`) |
+| `MAIL_ACCOUNTS` | *(empty)* | JSON array of extra accounts; see `wrangler.jsonc` for the shape |
 | `BLOB_STORE` | `database` | Attachment storage: `database` (default, no R2), `r2` or `auto` |
 
 ### Storage: R2 is optional
@@ -168,6 +171,8 @@ Secrets go in `.dev.vars` locally and through `wrangler secret put` in productio
 | `TURSO_DATABASE_URL` | `libsql://…` from `turso db show` |
 | `TURSO_AUTH_TOKEN` | `turso db tokens create` |
 | `SESSION_SECRET` | `openssl rand -base64 48` |
+| `MAILEROO_API_KEY` | Maileroo sending key (per account if you name it differently) |
+| `MAILEROO_WEBHOOK_SECRET` | Maileroo webhook shared secret |
 
 ## Deploy from GitHub
 
@@ -235,6 +240,10 @@ Every route below requires a session except the webhook, which authenticates by 
 | POST | `/api/attachments/upload` | Multipart upload into R2 |
 | GET | `/api/attachments/:id` | Auth-gated stream, `?inline=1` for inline parts |
 | POST | `/api/sync` | Import recent received mail and refresh outbound statuses |
+| POST | `/api/messages/:id/cancel` | Cancel a scheduled send |
+| GET/POST | `/api/accounts` | List accounts, switch the active one |
+| GET/POST/DELETE | `/api/provider/suppressions` | List, add and remove suppressions |
+| GET/POST/DELETE | `/api/provider/webhooks` | List, register and delete webhooks |
 | POST | `/api/webhooks/resend` | All Resend events |
 
 ## Data model
@@ -253,6 +262,30 @@ A few decisions worth knowing about:
 - Foreign keys are not enforced over HTTP, so deletes are explicit.
 - A reply keeps its thread's folder. Replying to an inbox thread does not also file it under
   Sent; the Sent folder lists threads that started from compose.
+
+## Providers
+
+Sending, receiving, statuses, webhooks, suppressions and metrics all go through
+`src/lib/providers`. Resend is the default; Maileroo implements the same contract and is
+selected per account.
+
+Maileroo specifics, straight from its docs:
+
+- Send posts to `https://smtp.maileroo.com/api/v2/emails` with an `X-Api-Key` header and
+  accepts `scheduled_at` for later delivery.
+- Delivery webhooks are signed with HMAC-SHA256 over the raw body in
+  `x-maileroo-signature`; events map onto the app's status vocabulary
+  (`accepted → sent`, `failed → bounced`, `rejected → failed`, `deferred → delivery_delayed`).
+- Inbound routing posts the whole message, so the provider parses it directly, validates the
+  one-time `validation_url`, downloads attachments from the signed URLs, then calls
+  `deletion_url` to purge Maileroo's copy.
+- The Account API (`https://api.maileroo.com/v1`, Bearer auth) backs the Settings tools:
+  webhooks, suppressions and statistics. Keys need the matching scopes
+  (`webhooks.read`, `suppressions.read`, `statistics.read`, `domains.read`).
+- Scheduled sends can be listed and deleted, which is what the cancel action uses.
+
+Templates, broadcasts, automations and dedicated IPs are intentionally not surfaced: they are
+marketing features, not webmail.
 
 ## Security
 

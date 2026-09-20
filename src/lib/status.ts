@@ -8,6 +8,7 @@ import type { MessageStatus } from './types';
  */
 export const STATUS_RANK: Record<MessageStatus, number> = {
   queued: 0,
+  scheduled: 0,
   sent: 1,
   received: 1,
   delivered: 2,
@@ -17,6 +18,7 @@ export const STATUS_RANK: Record<MessageStatus, number> = {
   bounced: 5,
   complained: 5,
   failed: 5,
+  canceled: 5,
 };
 
 export const TERMINAL_BAD_STATUSES: MessageStatus[] = ['bounced', 'complained', 'failed'];

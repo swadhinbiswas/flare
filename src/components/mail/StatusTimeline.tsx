@@ -1,4 +1,4 @@
-import { CheckCircle2, Circle, Clock, AlertTriangle, XCircle, MailCheck, MousePointerClick } from 'lucide-react';
+import { CheckCircle2, Circle, CircleSlash, Clock, AlertTriangle, XCircle, MailCheck, MousePointerClick } from 'lucide-react';
 
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { STATUS_RANK } from '@/lib/status';
@@ -40,6 +40,24 @@ interface StatusTimelineProps {
 /** Compact horizontal step indicator: Sent → Delivered → Opened → Clicked. */
 export default function StatusTimeline({ status, events, className }: StatusTimelineProps) {
   const bad = status === 'bounced' || status === 'complained' || status === 'failed';
+
+  if (status === 'scheduled') {
+    return (
+      <span className={cn('text-warning inline-flex items-center gap-1.5 text-xs font-medium', className)}>
+        <Clock className="size-3.5" />
+        Scheduled
+      </span>
+    );
+  }
+
+  if (status === 'canceled') {
+    return (
+      <span className={cn('text-muted-foreground inline-flex items-center gap-1.5 text-xs', className)}>
+        <CircleSlash className="size-3.5" />
+        Canceled
+      </span>
+    );
+  }
 
   if (status === 'queued') {
     return (

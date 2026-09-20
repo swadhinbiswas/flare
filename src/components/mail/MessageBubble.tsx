@@ -1,4 +1,5 @@
 import {
+  Ban,
   Download,
   Forward,
   Mail,
@@ -33,6 +34,7 @@ interface MessageBubbleProps {
   onReplyAll: (message: MessageDto) => void;
   onForward: (message: MessageDto) => void;
   onToggleRead: (message: MessageDto) => void;
+  onCancelSend?: (message: MessageDto) => void;
 }
 
 export default function MessageBubble({
@@ -42,6 +44,7 @@ export default function MessageBubble({
   onReplyAll,
   onForward,
   onToggleRead,
+  onCancelSend,
 }: MessageBubbleProps) {
   const isOutbound = message.direction === 'outbound';
   const fromName = isOutbound ? 'You' : nameOf(message.from);
@@ -96,6 +99,14 @@ export default function MessageBubble({
               <DropdownMenuItem onClick={() => onForward(message)}>
                 <Forward /> Forward
               </DropdownMenuItem>
+              {message.status === 'scheduled' && onCancelSend ? (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem variant="destructive" onClick={() => onCancelSend(message)}>
+                    <Ban /> Cancel scheduled send
+                  </DropdownMenuItem>
+                </>
+              ) : null}
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => onToggleRead(message)}>
                 {message.isRead ? <Mail /> : <MailOpen />}

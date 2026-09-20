@@ -374,6 +374,19 @@ export default function MailClient(props: MailClientProps) {
     [detail, user.email],
   );
 
+  const cancelScheduledSend = useCallback(
+    async (message: MessageDto) => {
+      try {
+        await apiFetch(`/api/messages/${message.id}/cancel`, { method: 'POST' });
+        toast.success('Scheduled send canceled');
+        if (detail && detail.thread.id === message.threadId) await openThread(message.threadId);
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : 'Could not cancel the scheduled send');
+      }
+    },
+    [detail, openThread],
+  );
+
   const handleSendError = useCallback((tempId: string) => {
     setDetail((previous) =>
       previous ? { ...previous, messages: previous.messages.filter((message) => message.id !== tempId) } : previous,
@@ -544,6 +557,7 @@ export default function MailClient(props: MailClientProps) {
       onReplyAll={(message) => startReply(message, 'reply_all')}
       onForward={(message) => startReply(message, 'forward')}
       onToggleMessageRead={(message) => void toggleMessageRead(message)}
+      onCancelSend={(message) => void cancelScheduledSend(message)}
       onToggleThreadRead={() => void toggleThreadRead()}
       onArchive={() =>
         selectedId &&

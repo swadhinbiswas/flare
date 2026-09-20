@@ -58,6 +58,15 @@ export interface ProviderOutboundMessage {
   /** Extra headers such as In-Reply-To and References. */
   headers?: Record<string, string>;
   attachments?: ProviderOutboundAttachment[];
+  /** ISO timestamp to schedule delivery instead of sending now. */
+  scheduledAt?: string | null;
+}
+
+export interface ProviderScheduledEmail {
+  id: string;
+  subject: string;
+  to: string[];
+  scheduledAt: string;
 }
 
 export interface ProviderDomain {
@@ -104,6 +113,9 @@ export interface MailProvider {
   // Sending and status
   send(message: ProviderOutboundMessage): Promise<{ id: string }>;
   getMessageStatus(providerMessageId: string): Promise<string | null>;
+  /** Cancel an email that is still scheduled. */
+  cancelScheduled?(providerMessageId: string): Promise<void>;
+  listScheduled?(): Promise<ProviderScheduledEmail[]>;
 
   // Receiving
   listReceived(limit: number): Promise<ProviderReceivedSummary[]>;
@@ -123,6 +135,7 @@ export interface MailProvider {
   createWebhook(input: { endpoint: string; events: string[] }): Promise<ProviderWebhook & { signingSecret: string }>;
   deleteWebhook(id: string): Promise<void>;
   listSuppressions(): Promise<ProviderSuppression[]>;
+  addSuppression?(email: string, reason?: string): Promise<void>;
   removeSuppression(idOrEmail: string): Promise<void>;
   getMetrics(days: number): Promise<ProviderMetrics>;
 }

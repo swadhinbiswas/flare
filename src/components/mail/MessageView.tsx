@@ -32,6 +32,7 @@ interface MessageViewProps {
   onReplyAll: (message: MessageDto) => void;
   onForward: (message: MessageDto) => void;
   onToggleMessageRead: (message: MessageDto) => void;
+  onCancelSend?: (message: MessageDto) => void;
   onToggleThreadRead: () => void;
   onArchive: () => void;
   onTrash: () => void;
@@ -77,6 +78,7 @@ export default function MessageView({
   onReplyAll,
   onForward,
   onToggleMessageRead,
+  onCancelSend,
   onToggleThreadRead,
   onArchive,
   onTrash,
@@ -221,6 +223,7 @@ export default function MessageView({
               onReplyAll={onReplyAll}
               onForward={onForward}
               onToggleRead={onToggleMessageRead}
+              onCancelSend={onCancelSend}
               avatarUrl={avatarUrl}
             />
           ))}
@@ -233,6 +236,7 @@ export default function MessageView({
               onReplyAll={onReplyAll}
               onForward={onForward}
               onToggleRead={onToggleMessageRead}
+              onCancelSend={onCancelSend}
               avatarUrl={avatarUrl}
             />
           ))}

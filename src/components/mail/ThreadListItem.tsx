@@ -7,6 +7,8 @@ import type { MessageStatus, ThreadSummaryDto } from '@/lib/types';
 
 const STATUS_DOT: Record<MessageStatus, string> = {
   queued: 'bg-[var(--warning)] animate-pulse',
+  scheduled: 'bg-[var(--warning)]',
+  canceled: 'bg-muted-foreground/40',
   sent: 'bg-primary/70',
   delivered: 'bg-[var(--success)]',
   delivery_delayed: 'bg-[var(--warning)]',

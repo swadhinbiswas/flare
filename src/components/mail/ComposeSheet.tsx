@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { FileUp, Loader2, Paperclip, Send, X } from 'lucide-react';
+import { CalendarClock, FileUp, Loader2, Paperclip, Send, X } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
@@ -72,6 +72,8 @@ export default function ComposeSheet({
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
   const [attachments, setAttachments] = useState<UploadedAttachment[]>([]);
+  const [scheduledAt, setScheduledAt] = useState('');
+  const [showSchedule, setShowSchedule] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [sending, setSending] = useState(false);
   const [dragging, setDragging] = useState(false);
@@ -87,6 +89,8 @@ export default function ComposeSheet({
     setSubject(draft?.subject ?? '');
     setBody(draft?.body ?? '');
     setAttachments([]);
+    setScheduledAt('');
+    setShowSchedule(false);
     setSending(false);
   }, [open, draft]);
 
@@ -138,12 +142,13 @@ export default function ComposeSheet({
           bcc,
           subject,
           text: body,
+          scheduledAt: scheduledAt ? new Date(scheduledAt).toISOString() : undefined,
           threadId: draft?.threadId ?? undefined,
           inReplyTo: draft?.inReplyTo ?? undefined,
           attachmentIds: attachments.map((attachment) => attachment.id),
         }),
       });
-      toast.success('Message sent');
+      toast.success(scheduledAt ? 'Message scheduled' : 'Message sent');
       onSent(result, tempId);
       onOpenChange(false);
     } catch (error) {
@@ -253,6 +258,24 @@ export default function ComposeSheet({
           </div>
         ) : null}
 
+        {showSchedule ? (
+          <div className="border-t px-5 py-3">
+            <label className="text-muted-foreground mb-1.5 block text-xs font-medium" htmlFor="send-at">
+              Deliver at
+            </label>
+            <Input
+              id="send-at"
+              type="datetime-local"
+              value={scheduledAt}
+              min={new Date(Date.now() + 5 * 60_000).toISOString().slice(0, 16)}
+              onChange={(event) => setScheduledAt(event.target.value)}
+            />
+            <p className="text-muted-foreground mt-1 text-xs">
+              Leave empty to send immediately. Scheduled mail can be canceled from the conversation.
+            </p>
+          </div>
+        ) : null}
+
         <SheetFooter className="border-t px-5 py-4">
           <input
             ref={fileInputRef}
@@ -264,26 +287,37 @@ export default function ComposeSheet({
               event.target.value = '';
             }}
           />
-          <div className="flex items-center justify-between gap-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={uploading}
-              className="text-muted-foreground"
-            >
-              {uploading ? <Loader2 className="size-4 animate-spin" /> : <Paperclip className="size-4" />}
-              Attach
-            </Button>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-1">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading}
+                className="text-muted-foreground"
+              >
+                {uploading ? <Loader2 className="size-4 animate-spin" /> : <Paperclip className="size-4" />}
+                Attach
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowSchedule((value) => !value)}
+                className={showSchedule ? 'text-primary' : 'text-muted-foreground'}
+              >
+                <CalendarClock className="size-4" />
+                Send later
+              </Button>
+            </div>
             <div className="flex items-center gap-2">
               <span className="text-muted-foreground hidden text-[11px] sm:inline">⌘↵ to send</span>
               <Button
                 onClick={() => void handleSend()}
-                disabled={sending || uploading || !recipientsValid}
+                disabled={sending || uploading || !recipientsValid || (showSchedule && !scheduledAt)}
                 className={cn(!recipientsValid && 'opacity-60')}
               >
                 {sending ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
-                {sending ? 'Sending…' : 'Send'}
+                {sending ? 'Working…' : scheduledAt ? 'Schedule' : 'Send'}
               </Button>
             </div>
           </div>

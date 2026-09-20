@@ -21,6 +21,8 @@ export type Direction = 'inbound' | 'outbound';
  */
 export type MessageStatus =
   | 'queued'
+  | 'scheduled'
+  | 'canceled'
   | 'sent'
   | 'delivered'
   | 'delivery_delayed'
@@ -158,4 +160,6 @@ export interface SendMessageInput {
   inReplyTo?: string;
   /** Ids returned by /api/attachments/upload. */
   attachmentIds?: string[];
+  /** ISO timestamp to schedule delivery instead of sending now. */
+  scheduledAt?: string | null;
 }

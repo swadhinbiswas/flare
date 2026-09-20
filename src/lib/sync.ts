@@ -24,7 +24,7 @@ const STATUS_FROM_LAST_EVENT: Record<string, MessageStatus> = {
   bounced: 'bounced',
   complained: 'complained',
   failed: 'failed',
-  canceled: 'failed',
+  canceled: 'canceled',
   suppressed: 'failed',
 };
 

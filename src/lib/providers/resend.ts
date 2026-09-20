@@ -47,6 +47,7 @@ export function createResendProvider(config: ResendConfig = {}): MailProvider {
             }
           : {}),
         ...(message.headers ? { headers: message.headers } : {}),
+        ...(message.scheduledAt ? { scheduledAt: message.scheduledAt } : {}),
       };
       // The SDK's type is a union that requires exactly one render mode, so
       // narrow explicitly instead of spreading optional keys.
@@ -56,6 +57,21 @@ export function createResendProvider(config: ResendConfig = {}): MailProvider {
       const { data, error } = await client().emails.send(payload);
       if (error || !data?.id) throw new Error(error?.message ?? 'Resend returned no message id');
       return { id: data.id };
+    },
+
+    async cancelScheduled(providerMessageId) {
+      // Resend accepts the send before it flips the message into the scheduled
+      // state, so a cancel issued right after sending can fail with "Email is
+      // not scheduled". Retry briefly instead of surfacing that race.
+      let lastError = 'Email could not be canceled';
+      for (let attempt = 0; attempt < 4; attempt += 1) {
+        const { error } = await client().emails.cancel(providerMessageId);
+        if (!error) return;
+        lastError = error.message;
+        if (!/not scheduled/i.test(lastError)) break;
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+      }
+      throw new Error(lastError);
     },
 
     async getMessageStatus(providerMessageId) {
@@ -159,6 +175,11 @@ export function createResendProvider(config: ResendConfig = {}): MailProvider {
 
     async deleteWebhook(id) {
       const { error } = await client().webhooks.remove(id);
+      if (error) throw new Error(error.message);
+    },
+
+    async addSuppression(email) {
+      const { error } = await client().suppressions.add({ email });
       if (error) throw new Error(error.message);
     },
 

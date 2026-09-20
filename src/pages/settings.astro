@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Separator } from '@/components/ui/separator';
 import { getMailProvider } from '@/lib/providers';
 import { accountSummaries, getActiveAccount } from '@/lib/accounts';
+import ProviderTools from '@/components/settings/ProviderTools';
 import ProfileForm from '@/components/settings/ProfileForm';
 
 const user = Astro.locals.user!;
@@ -16,6 +17,14 @@ const accounts = accountSummaries();
 const provider = getMailProvider(account);
 const webhookUrl = new URL(`/api/webhooks/${account.provider}/${account.id}`, env.PUBLIC_APP_URL).toString();
 const inboundDomain = account.inboundDomain ?? env.RESEND_INBOUND_DOMAIN;
+
+let metrics: Record<string, number> | null = null;
+let metricsError: string | null = null;
+try {
+  metrics = (await provider.getMetrics(7)).totals;
+} catch (error) {
+  metricsError = error instanceof Error ? error.message : 'Metrics are unavailable.';
+}
 
 type DomainInfo = { name: string; status: string; region?: string; sending?: string; receiving?: string };
 type WebhookInfo = { endpoint: string; events: string[] | null };
@@ -78,7 +87,7 @@ const domainHealthy = domain?.status === 'verified' && sendingEnabled && receivi
         <AlertTitle>Domain not ready for sending and receiving</AlertTitle>
         <AlertDescription>
           {resendError
-            ? `Resend could not be reached: ${resendError}`
+            ? `${provider.label} could not be reached: ${resendError}`
             : !domain
               ? `${inboundDomain} is not present in your Resend account. Add it and verify the MX/DKIM/SPF records to receive mail.`
               : domain.status !== 'verified'
@@ -223,6 +232,43 @@ const domainHealthy = domain?.status === 'verified' && sendingEnabled && receivi
             Events: email.received, email.sent, email.delivered, email.delivery_delayed, email.bounced,
             email.complained, email.opened, email.clicked
           </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Deliverability</CardTitle>
+          <CardDescription>Last 7 days, as reported by {provider.label}.</CardDescription>
+        </CardHeader>
+        <CardContent className="text-sm">
+          {metricsError ? (
+            <p class="text-muted-foreground text-xs">{metricsError}</p>
+          ) : metrics && Object.keys(metrics).length > 0 ? (
+            <div class="grid grid-cols-2 gap-3 sm:grid-cols-3">
+              {['sent', 'delivered', 'bounced', 'opened', 'clicked', 'complained'].map((key) => (
+                <div>
+                  <div class="text-muted-foreground text-xs capitalize">{key}</div>
+                  <div class="text-lg font-semibold tabular-nums">
+                    {metrics?.[key] ?? metrics?.[key.toUpperCase()] ?? 0}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p class="text-muted-foreground text-xs">No activity in the last 7 days.</p>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Provider tools</CardTitle>
+          <CardDescription>
+            Webhooks and suppressions for the active {provider.label} account.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ProviderTools client:load webhookUrl={webhookUrl} providerLabel={provider.label} />
         </CardContent>
       </Card>
 

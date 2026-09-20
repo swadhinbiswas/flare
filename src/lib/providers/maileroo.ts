@@ -15,6 +15,7 @@ interface EmailObject {
 }
 
 const API_BASE = 'https://smtp.maileroo.com/api/v2';
+const ACCOUNT_BASE = 'https://api.maileroo.com/v1';
 
 /** Maileroo status events mapped onto the app's canonical status vocabulary. */
 const STATUS_EVENT_MAP: Record<string, string> = {
@@ -70,6 +71,40 @@ export function createMailerooProvider(config: MailerooConfig = {}): MailProvide
   const apiKey = config.apiKey ?? env.MAILEROO_API_KEY ?? '';
   const webhookSecret = config.webhookSecret ?? env.MAILEROO_WEBHOOK_SECRET ?? '';
 
+  async function sendJson(url: string, init: RequestInit = {}): Promise<unknown> {
+    const response = await fetch(url, {
+      ...init,
+      headers: { 'content-type': 'application/json', 'x-api-key': apiKey, ...(init.headers ?? {}) },
+    });
+    const body = (await response.json().catch(() => null)) as { success?: boolean; message?: string } | null;
+    if (!response.ok || body?.success === false) {
+      throw new Error(body?.message ?? `Maileroo request failed with ${response.status}`);
+    }
+    return body;
+  }
+
+  async function accountRequest(method: string, path: string, payload?: unknown): Promise<{ data?: unknown }> {
+    const response = await fetch(`${ACCOUNT_BASE}${path}`, {
+      method,
+      headers: {
+        authorization: `Bearer ${apiKey}`,
+        accept: 'application/json',
+        ...(payload ? { 'content-type': 'application/json' } : {}),
+      },
+      ...(payload ? { body: JSON.stringify(payload) } : {}),
+    });
+    const body = (await response.json().catch(() => null)) as
+      | { data?: unknown; error?: { message?: string } }
+      | null;
+    if (!response.ok) {
+      throw new Error(body?.error?.message ?? `Maileroo account API failed with ${response.status}`);
+    }
+    return body ?? {};
+  }
+
+  const accountGet = (path: string) => accountRequest('GET', path);
+  const accountSend = (method: string, path: string, payload?: unknown) => accountRequest(method, path, payload);
+
   const unsupported = (feature: string): never => {
     throw new Error(`Maileroo does not expose ${feature} through its API. Inbound mail arrives by webhook.`);
   };
@@ -104,6 +139,7 @@ export function createMailerooProvider(config: MailerooConfig = {}): MailProvide
               }
             : {}),
           ...(message.headers ? { headers: message.headers } : {}),
+          ...(message.scheduledAt ? { scheduled_at: message.scheduledAt } : {}),
         }),
       });
       const body = (await response.json().catch(() => null)) as
@@ -120,6 +156,22 @@ export function createMailerooProvider(config: MailerooConfig = {}): MailProvide
     async getMessageStatus() {
       // Maileroo reports status through webhooks, not a per-message lookup.
       return null;
+    },
+
+    async cancelScheduled(providerMessageId) {
+      await sendJson(`${API_BASE}/emails/scheduled/${encodeURIComponent(providerMessageId)}`, { method: 'DELETE' });
+    },
+
+    async listScheduled() {
+      const body = (await sendJson(`${API_BASE}/emails/scheduled?per_page=100`)) as {
+        data?: { results?: { reference_id?: string; subject?: string; recipients?: string[]; scheduled_at?: string }[] };
+      };
+      return (body.data?.results ?? []).map((item) => ({
+        id: item.reference_id ?? '',
+        subject: item.subject ?? '',
+        to: item.recipients ?? [],
+        scheduledAt: item.scheduled_at ?? '',
+      }));
     },
 
     listReceived() {
@@ -229,25 +281,80 @@ export function createMailerooProvider(config: MailerooConfig = {}): MailProvide
     },
 
     async listDomains() {
-      return unsupported('domain management');
+      const body = await accountGet('/domains');
+      const rows = Array.isArray(body.data) ? body.data : ((body.data as { domains?: unknown[] })?.domains ?? []);
+      return (rows as Record<string, unknown>[]).map((row) => {
+        const status = String(row.status ?? row.verification_status ?? 'unknown');
+        const verified = ['verified', 'active', 'enabled'].includes(status.toLowerCase());
+        return {
+          id: String(row.id ?? row.domain ?? ''),
+          name: String(row.domain ?? row.name ?? ''),
+          status,
+          region: String(row.region ?? ''),
+          sending: verified ? 'enabled' : 'pending',
+          receiving: String(row.inbound_status ?? (verified ? 'enabled' : 'pending')),
+        };
+      });
     },
+
     async listWebhooks() {
-      return unsupported('webhook management');
+      const body = await accountGet('/webhooks');
+      const rows = Array.isArray(body.data) ? body.data : [];
+      return (rows as Record<string, unknown>[]).map((row) => ({
+        id: String(row.id ?? ''),
+        endpoint: String(row.callback_url ?? row.endpoint ?? ''),
+        events: (row.event_types as string[] | undefined) ?? null,
+        status: row.status ? String(row.status) : undefined,
+      }));
     },
-    async createWebhook() {
-      return unsupported('webhook creation');
+
+    async createWebhook({ endpoint, events }) {
+      const body = await accountSend('POST', '/webhooks', { callback_url: endpoint, event_types: events });
+      const data = (body.data ?? {}) as Record<string, unknown>;
+      return {
+        id: String(data.id ?? ''),
+        endpoint,
+        events,
+        signingSecret: String(data.signing_secret ?? data.shared_secret ?? ''),
+      };
     },
-    async deleteWebhook() {
-      return unsupported('webhook deletion');
+
+    async deleteWebhook(id) {
+      await accountSend('DELETE', `/webhooks/${encodeURIComponent(id)}`);
     },
+
     async listSuppressions() {
-      return unsupported('suppression management');
+      const body = await accountGet('/suppressions');
+      const rows = (body.data as { suppressions?: Record<string, unknown>[] } | undefined)?.suppressions ?? [];
+      return rows.map((row) => ({
+        id: String(row.id ?? ''),
+        email: String(row.email_address ?? row.email ?? ''),
+        reason: row.reason ? String(row.reason) : null,
+        createdAt: String(row.created_at ?? ''),
+      }));
     },
-    async removeSuppression() {
-      return unsupported('suppression management');
+
+    async addSuppression(email, reason) {
+      await accountSend('POST', '/suppressions', { email_address: email, ...(reason ? { reason } : {}) });
     },
-    async getMetrics() {
-      return unsupported('metrics');
+
+    async removeSuppression(idOrEmail) {
+      await accountSend('DELETE', `/suppressions/${encodeURIComponent(idOrEmail)}`);
+    },
+
+    async getMetrics(days) {
+      const end = new Date();
+      const start = new Date(end.getTime() - days * 24 * 60 * 60 * 1000);
+      const body = await accountGet(
+        `/statistics?start_date=${start.toISOString().slice(0, 10)}&end_date=${end.toISOString().slice(0, 10)}`,
+      );
+      const data = (body.data ?? {}) as Record<string, unknown>;
+      const source = (data.stats ?? data.totals ?? data) as Record<string, unknown>;
+      const totals: Record<string, number> = {};
+      for (const [key, value] of Object.entries(source)) {
+        if (typeof value === 'number') totals[key] = value;
+      }
+      return { startDate: start.toISOString(), endDate: end.toISOString(), totals };
     },
   };
 }
