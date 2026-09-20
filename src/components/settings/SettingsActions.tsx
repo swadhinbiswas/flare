@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { LogOut, Moon, Sun } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -14,9 +14,13 @@ interface SettingsActionsProps {
 export default function SettingsActions({ user, webhookUrl }: SettingsActionsProps) {
   const [copied, setCopied] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
-  const [theme, setTheme] = useState<'light' | 'dark'>(() =>
-    typeof document !== 'undefined' && document.documentElement.classList.contains('dark') ? 'dark' : 'light',
-  );
+  // Start from the app default (dark) so SSR and hydration agree, then sync to
+  // whatever this browser actually has stored after mount.
+  const [theme, setTheme] = useState<'light' | 'dark'>('dark');
+
+  useEffect(() => {
+    setTheme(document.documentElement.classList.contains('dark') ? 'dark' : 'light');
+  }, []);
 
   function toggleTheme() {
     const next = theme === 'dark' ? 'light' : 'dark';
