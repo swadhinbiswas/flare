@@ -1,0 +1,48 @@
+---
+import '@/styles/globals.css';
+import { Toaster } from '@/components/ui/sonner';
+
+interface Props {
+  title?: string;
+  description?: string;
+  bodyClass?: string;
+  /** Center content in a full-viewport flex container (login, errors). */
+  centered?: boolean;
+}
+
+const {
+  title = 'RFLARE',
+  description = 'Self-hosted mailbox on Resend, Cloudflare Workers and Turso.',
+  bodyClass = '',
+  centered = false,
+} = Astro.props;
+---
+
+<!doctype html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="description" content={description} />
+    <meta name="theme-color" content="#0f0f11" />
+    <meta name="color-scheme" content="dark light" />
+    <title>{title}</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="canonical" href={Astro.url.href} />
+    <script is:inline>
+      // Apply the stored theme before first paint so there is no flash. Dark is
+      // the default; the toggle in the app writes localStorage.
+      try {
+        const stored = localStorage.getItem('rflare-theme');
+        document.documentElement.classList.toggle('dark', stored !== 'light');
+      } catch {
+        /* ignore */
+      }
+    </script>
+  </head>
+  <body class:list={['min-h-dvh bg-background text-foreground antialiased', centered && 'grid place-items-center', bodyClass]}>
+    <slot />
+    <Toaster client:load />
+  </body>
+</html>
