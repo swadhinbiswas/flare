@@ -1,0 +1,15 @@
+RESEND_API_KEY="re_xxxxxxxxxxxxxxxxxxxxxxxx"
+
+# From the webhook detail page in the Resend dashboard. Must be the exact
+# `whsec_...` value (after the prefix, it is base64 — a made-up string will fail
+# signature verification with "incorrect characters for decoding").
+RESEND_WEBHOOK_SECRET="whsec_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx="
+
+# Turso database URL + token. For a local `turso dev` server use
+# http://127.0.0.1:8080 and leave the token empty.
+TURSO_DATABASE_URL="libsql://your-db.turso.io"
+TURSO_AUTH_TOKEN=""
+
+# 32+ random bytes used to sign session cookies.
+# Generate with: openssl rand -base64 48
+SESSION_SECRET="change-me-to-32-plus-random-bytes"
