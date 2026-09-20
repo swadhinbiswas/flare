@@ -1,0 +1,18 @@
+{
+  "name": "RFLARE",
+  "short_name": "RFLARE",
+  "description": "Self-hosted mailbox on Resend, Cloudflare Workers and Turso.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#0f0f11",
+  "theme_color": "#0f0f11",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
