@@ -49,6 +49,8 @@ Light theme is one click away in the account menu, and delivery status is visibl
   never walk a delivered message back to sent.
 - **Sync from Resend** pulls the recent picture on demand: received emails that predate the
   webhook are imported and outbound statuses refresh from the API.
+- **Four palettes** with light and dark modes: Proton (default), Zinc, Nord and Rosé. Switch from
+  the account menu, the mobile drawer or the command palette. Message bodies follow the palette.
 - **Search** the current folder from the list, or everything from `⌘K`.
 - **Keyboard-first**: `c`, `r`, `e`, `#`, `j`/`k`, `Enter`, `/`, `⌘K`, `⌘↵`.
 
