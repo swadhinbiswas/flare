@@ -1,0 +1,212 @@
+---
+import { env } from 'cloudflare:workers';
+import AppShell from '@/layouts/AppShell.astro';
+import SettingsActions from '@/components/settings/SettingsActions';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Separator } from '@/components/ui/separator';
+import { getResend } from '@/lib/resend';
+
+const user = Astro.locals.user!;
+const webhookUrl = new URL('/api/webhooks/resend', env.PUBLIC_APP_URL).toString();
+const inboundDomain = env.RESEND_INBOUND_DOMAIN;
+
+type DomainInfo = { name: string; status: string; region?: string; sending?: string; receiving?: string };
+type WebhookInfo = { endpoint: string; events: string[] | null };
+
+let domain: DomainInfo | null = null;
+let webhooks: WebhookInfo[] | null = null;
+let resendError: string | null = null;
+
+try {
+  const domainsResult = await getResend().domains.list();
+  if (domainsResult.error) throw new Error(domainsResult.error.message);
+  const match = domainsResult.data.data.find((item) => item.name === inboundDomain);
+  if (match) {
+    domain = {
+      name: match.name,
+      status: match.status,
+      region: match.region,
+      sending: match.capabilities?.sending,
+      receiving: match.capabilities?.receiving,
+    };
+  }
+} catch (error) {
+  resendError = error instanceof Error ? error.message : 'Could not reach the Resend API.';
+}
+
+try {
+  const webhooksResult = await getResend().webhooks.list();
+  if (!webhooksResult.error) {
+    webhooks = webhooksResult.data.data.map((item) => ({ endpoint: item.endpoint, events: item.events }));
+  }
+} catch {
+  webhooks = null;
+}
+
+const webhookRegistered = webhooks?.some((item) => item.endpoint === webhookUrl) ?? null;
+const tursoHost = (() => {
+  try {
+    return new URL(env.TURSO_DATABASE_URL.replace(/^libsql:\/\//, 'https://')).host;
+  } catch {
+    return env.TURSO_DATABASE_URL;
+  }
+})();
+
+const receivingBadge =
+  !domain || domain.receiving !== 'verified'
+    ? ('warning' as const)
+    : domain.status === 'verified'
+      ? ('success' as const)
+      : ('warning' as const);
+---
+
+<AppShell title="Settings · RFLARE" bodyClass="overflow-y-auto">
+  <div class="mx-auto max-w-3xl px-5 py-10">
+    <header class="mb-6 flex flex-wrap items-end justify-between gap-3">
+      <div>
+        <a href="/" class="text-muted-foreground hover:text-foreground text-xs">← Back to inbox</a>
+        <h1 class="mt-1 text-xl font-semibold tracking-tight">Settings</h1>
+        <p class="text-muted-foreground text-sm">Mailbox, delivery and infrastructure status.</p>
+      </div>
+      <SettingsActions client:load user={user} webhookUrl={webhookUrl} />
+    </header>
+
+    {!domain || domain.status !== 'verified' || domain.receiving !== 'verified' ? (
+      <Alert variant="warning" className="mb-5">
+        <AlertTitle>Receiving domain not verified yet</AlertTitle>
+        <AlertDescription>
+          {resendError
+            ? `Resend could not be reached: ${resendError}`
+            : !domain
+              ? `${inboundDomain} is not present in your Resend account. Add it and verify the MX/DKIM/SPF records to receive mail.`
+              : `${inboundDomain} is "${domain.status}" (receiving: ${domain.receiving ?? 'unknown'}). Inbound mail will not arrive until Resend shows it as verified with receiving enabled.`}
+        </AlertDescription>
+      </Alert>
+    ) : null}
+
+    {webhookRegistered === false ? (
+      <Alert variant="warning" className="mb-5">
+        <AlertTitle>Webhook not registered</AlertTitle>
+        <AlertDescription>
+          No Resend webhook points at <code class="text-xs">{webhookUrl}</code>. Inbound mail and delivery status
+          updates need it — add it under Webhooks in the Resend dashboard.
+        </AlertDescription>
+      </Alert>
+    ) : null}
+
+    <div class="grid gap-5">
+      <Card>
+        <CardHeader>
+          <CardTitle>Account</CardTitle>
+          <CardDescription>The single admin user for this mailbox.</CardDescription>
+        </CardHeader>
+        <CardContent className="text-sm">
+          <div class="flex items-center justify-between gap-4">
+            <span class="text-muted-foreground">Email</span>
+            <span class="font-medium">{user.email}</span>
+          </div>
+          <Separator className="my-3" />
+          <div class="flex items-center justify-between gap-4">
+            <span class="text-muted-foreground">Session</span>
+            <span>Signed-in cookie · 30 day sliding expiry · PBKDF2-SHA256</span>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Sending & receiving domain</CardTitle>
+          <CardDescription>
+            Configured as <code class="text-xs">RESEND_INBOUND_DOMAIN</code>. Mail is sent as the signed-in address
+            on this domain.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3 text-sm">
+          <div class="flex items-center justify-between gap-4">
+            <span class="text-muted-foreground">Domain</span>
+            <span class="font-medium">{domain?.name ?? inboundDomain}</span>
+          </div>
+          <div class="flex items-center justify-between gap-4">
+            <span class="text-muted-foreground">Status</span>
+            <Badge variant={domain?.status === 'verified' ? 'success' : 'warning'}>
+              {domain?.status ?? (resendError ? 'unreachable' : 'not found')}
+            </Badge>
+          </div>
+          <div class="flex items-center justify-between gap-4">
+            <span class="text-muted-foreground">Capabilities</span>
+            <span class="flex gap-2">
+              <Badge variant={domain?.sending === 'verified' ? 'success' : 'outline'}>
+                sending: {domain?.sending ?? 'unknown'}
+              </Badge>
+              <Badge variant={receivingBadge}>receiving: {domain?.receiving ?? 'unknown'}</Badge>
+            </span>
+          </div>
+          {domain?.region ? (
+            <div class="flex items-center justify-between gap-4">
+              <span class="text-muted-foreground">Region</span>
+              <span>{domain.region}</span>
+            </div>
+          ) : null}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Webhook</CardTitle>
+          <CardDescription>All Resend events land on a single signed endpoint.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3 text-sm">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <span class="text-muted-foreground">Endpoint</span>
+            <code class="bg-muted max-w-full truncate rounded px-2 py-1 text-xs">{webhookUrl}</code>
+          </div>
+          <div class="flex items-center justify-between gap-4">
+            <span class="text-muted-foreground">Registered in Resend</span>
+            <Badge variant={webhookRegistered === null ? 'outline' : webhookRegistered ? 'success' : 'warning'}>
+              {webhookRegistered === null ? 'unknown' : webhookRegistered ? 'yes' : 'no'}
+            </Badge>
+          </div>
+          <div class="text-muted-foreground text-xs">
+            Events: email.received, email.sent, email.delivered, email.delivery_delayed, email.bounced,
+            email.complained, email.opened, email.clicked
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Infrastructure</CardTitle>
+          <CardDescription>Where the pieces live.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3 text-sm">
+          <div class="flex items-center justify-between gap-4">
+            <span class="text-muted-foreground">Turso database</span>
+            <code class="text-xs">{tursoHost}</code>
+          </div>
+          <div class="flex items-center justify-between gap-4">
+            <span class="text-muted-foreground">Attachments (R2)</span>
+            <Badge variant="success">ATTACHMENTS bucket bound</Badge>
+          </div>
+          <div class="flex items-center justify-between gap-4">
+            <span class="text-muted-foreground">Resend API key</span>
+            <Badge variant={env.RESEND_API_KEY ? 'success' : 'warning'}>
+              {env.RESEND_API_KEY ? 'configured' : 'missing'}
+            </Badge>
+          </div>
+          <div class="flex items-center justify-between gap-4">
+            <span class="text-muted-foreground">Webhook secret</span>
+            <Badge variant={env.RESEND_WEBHOOK_SECRET ? 'success' : 'warning'}>
+              {env.RESEND_WEBHOOK_SECRET ? 'configured' : 'missing'}
+            </Badge>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+
+    <p class="text-muted-foreground mt-8 text-center text-xs">
+      RFLARE · Resend + Cloudflare Workers + Turso · <a class="hover:text-foreground underline" href="/">inbox</a>
+    </p>
+  </div>
+</AppShell>
