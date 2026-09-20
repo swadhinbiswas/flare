@@ -1,0 +1,30 @@
+# build output
+dist/
+.astro/
+
+# dependencies
+node_modules/
+
+# cloudflare / wrangler
+.wrangler/
+.dev.vars
+# NOTE: worker-configuration.d.ts is intentionally tracked so typechecking works
+# on a fresh clone. Regenerate with `pnpm types` after changing wrangler.jsonc.
+
+# local database files (turso dev)
+*.db
+*.db-shm
+*.db-wal
+
+# logs
+*.log
+
+# env files
+.env
+.env.*
+
+# macOS
+.DS_Store
+
+# one-time bootstrap password file
+.admin-bootstrap
