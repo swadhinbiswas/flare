@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Archive, Inbox, LogOut, Mail, Moon, PenLine, Send, Settings, Sun, Trash2 } from 'lucide-react';
+import { Archive, Inbox, LogOut, Mail, Moon, PenLine, RefreshCw, Send, Settings, Sun, Trash2 } from 'lucide-react';
 
 import {
   CommandDialog,
@@ -21,9 +21,11 @@ interface CommandPaletteProps {
   onOpenChange: (open: boolean) => void;
   folder: Folder;
   recentThreads: ThreadSummaryDto[];
+  syncing: boolean;
   onSelectThread: (id: string) => void;
   onCompose: () => void;
   onToggleTheme: () => void;
+  onSync: () => void;
   onSignOut: () => void;
 }
 
@@ -31,9 +33,11 @@ export default function CommandPalette({
   open,
   onOpenChange,
   recentThreads,
+  syncing,
   onSelectThread,
   onCompose,
   onToggleTheme,
+  onSync,
   onSignOut,
 }: CommandPaletteProps) {
   const [query, setQuery] = useState('');
@@ -97,6 +101,16 @@ export default function CommandPalette({
           >
             <PenLine /> New message
             <CommandShortcut>c</CommandShortcut>
+          </CommandItem>
+          <CommandItem
+            value="sync from resend import recent mail"
+            onSelect={() => {
+              onOpenChange(false);
+              onSync();
+            }}
+          >
+            <RefreshCw className={syncing ? 'animate-spin' : undefined} />
+            {syncing ? 'Syncing with Resend…' : 'Sync from Resend'}
           </CommandItem>
           <CommandItem value="go to inbox" onSelect={() => go('/')}>
             <Inbox /> Inbox

@@ -6,6 +6,7 @@ import {
   Mail,
   Moon,
   PenLine,
+  RefreshCw,
   Search,
   Send,
   Settings,
@@ -36,9 +37,11 @@ interface FolderNavProps {
   counts: FolderCounts;
   user: SessionUser;
   theme: 'light' | 'dark';
+  syncing: boolean;
   onToggleTheme: () => void;
   onCompose: () => void;
   onOpenPalette: () => void;
+  onSync: () => void;
 }
 
 const NAV_ITEMS: { folder: Folder; label: string; href: string; icon: typeof Inbox }[] = [
@@ -53,9 +56,11 @@ export default function FolderNav({
   counts,
   user,
   theme,
+  syncing,
   onToggleTheme,
   onCompose,
   onOpenPalette,
+  onSync,
 }: FolderNavProps) {
   const [signingOut, setSigningOut] = useState(false);
 
@@ -132,6 +137,17 @@ export default function FolderNav({
           <span className="ml-auto inline-flex items-center gap-0.5 text-[10px]">
             <CommandIcon className="size-3" />K
           </span>
+        </Button>
+
+        <Button
+          variant="ghost"
+          size="sm"
+          className="text-muted-foreground w-full justify-start gap-2"
+          onClick={onSync}
+          disabled={syncing}
+        >
+          <RefreshCw className={cn('size-4', syncing && 'animate-spin')} />
+          {syncing ? 'Syncing with Resend…' : 'Sync from Resend'}
         </Button>
 
         <DropdownMenu>

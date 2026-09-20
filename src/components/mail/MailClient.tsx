@@ -85,6 +85,7 @@ export default function MailClient(props: MailClientProps) {
   const [composeOpen, setComposeOpen] = useState(false);
   const [draft, setDraft] = useState<ComposeDraft | null>(null);
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [syncing, setSyncing] = useState(false);
   const [mobilePane, setMobilePane] = useState<'list' | 'thread'>(props.initialThreadId ? 'thread' : 'list');
 
   const searchRef = useRef<HTMLInputElement>(null);
@@ -173,6 +174,33 @@ export default function MailClient(props: MailClientProps) {
       // keep the current view
     }
   }, [selectedId]);
+
+  const syncFromResend = useCallback(async () => {
+    if (syncing) return;
+    setSyncing(true);
+    try {
+      const result = await apiFetch<{ scanned: number; received: number; statuses: number; errors: string[] }>(
+        '/api/sync',
+        { method: 'POST', ...jsonBody({}) },
+      );
+      if (result.received > 0) {
+        toast.success(`Imported ${result.received} ${result.received === 1 ? 'message' : 'messages'} from Resend`);
+      } else if (result.statuses > 0) {
+        toast.success(`Updated ${result.statuses} delivery ${result.statuses === 1 ? 'status' : 'statuses'}`);
+      } else {
+        toast.info('Already up to date');
+      }
+      if (result.errors.length > 0) {
+        toast.warning(`${result.errors.length} item(s) could not be synced`, { description: result.errors[0] });
+      }
+      await loadThreads({ q: queryRef.current.trim() });
+      if (selectedId) await openThread(selectedId);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Sync failed');
+    } finally {
+      setSyncing(false);
+    }
+  }, [syncing, loadThreads, selectedId, openThread]);
 
   // --- Thread actions -------------------------------------------------------
   const moveThread = useCallback(
@@ -475,9 +503,11 @@ export default function MailClient(props: MailClientProps) {
             counts={counts}
             user={user}
             theme={theme}
+            syncing={syncing}
             onToggleTheme={toggleTheme}
             onCompose={startCompose}
             onOpenPalette={() => setPaletteOpen(true)}
+            onSync={() => void syncFromResend()}
           />
           <div className="min-h-0 flex-1">
             {mobilePane === 'thread' && selectedId ? messageView : threadList}
@@ -491,9 +521,11 @@ export default function MailClient(props: MailClientProps) {
               counts={counts}
               user={user}
               theme={theme}
+              syncing={syncing}
               onToggleTheme={toggleTheme}
               onCompose={startCompose}
               onOpenPalette={() => setPaletteOpen(true)}
+              onSync={() => void syncFromResend()}
             />
           </ResizablePanel>
           <ResizableHandle />
@@ -522,9 +554,11 @@ export default function MailClient(props: MailClientProps) {
         onOpenChange={setPaletteOpen}
         folder={folder}
         recentThreads={recentForPalette}
+        syncing={syncing}
         onSelectThread={(id) => void openThread(id)}
         onCompose={startCompose}
         onToggleTheme={toggleTheme}
+        onSync={() => void syncFromResend()}
         onSignOut={() => void onSignOut()}
       />
       </div>

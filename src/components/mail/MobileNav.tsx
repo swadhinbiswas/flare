@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Archive, Inbox, LogOut, Mail, Menu, Moon, PenLine, Search, Send, Settings, Sun, Trash2 } from 'lucide-react';
+import { Archive, Inbox, LogOut, Mail, Menu, Moon, PenLine, RefreshCw, Search, Send, Settings, Sun, Trash2 } from 'lucide-react';
 
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -16,9 +16,11 @@ interface MobileNavProps {
   counts: FolderCounts;
   user: SessionUser;
   theme: 'light' | 'dark';
+  syncing: boolean;
   onToggleTheme: () => void;
   onCompose: () => void;
   onOpenPalette: () => void;
+  onSync: () => void;
 }
 
 const NAV_ITEMS: { folder: Folder; label: string; href: string; icon: typeof Inbox }[] = [
@@ -35,9 +37,11 @@ export default function MobileNav({
   counts,
   user,
   theme,
+  syncing,
   onToggleTheme,
   onCompose,
   onOpenPalette,
+  onSync,
 }: MobileNavProps) {
   const [open, setOpen] = useState(false);
 
@@ -117,6 +121,19 @@ export default function MobileNav({
               }}
             >
               <Search className="size-4" /> Search & commands
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="w-full justify-start gap-2"
+              disabled={syncing}
+              onClick={() => {
+                setOpen(false);
+                onSync();
+              }}
+            >
+              <RefreshCw className={cn('size-4', syncing && 'animate-spin')} />
+              {syncing ? 'Syncing with Resend…' : 'Sync from Resend'}
             </Button>
           </div>
           <Separator className="my-2" />
