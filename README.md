@@ -48,7 +48,12 @@ Light theme is one click away in the account menu, and delivery status is visibl
   complained and failed as terminal states. The status only moves forward, so a late webhook can
   never walk a delivered message back to sent.
 - **Sync from Resend** pulls the recent picture on demand: received emails that predate the
-  webhook are imported and outbound statuses refresh from the API.
+  webhook are imported and outbound statuses refresh from the API. It also runs by itself once a
+  minute while the app is open, so new mail shows up without a webhook.
+- **Profile**: set a display name (used in the `From` header) and an avatar, both managed from
+  Settings.
+- **Pluggable backends**: mail goes through a provider interface (`src/lib/providers`), and
+  attachments go through a blob store that can be the database (default) or R2.
 - **Four palettes** with light and dark modes: Proton (default), Zinc, Nord and Rosé. Switch from
   the account menu, the mobile drawer or the command palette. Message bodies follow the palette.
 - **Search** the current folder from the list, or everything from `⌘K`.
@@ -142,8 +147,17 @@ Non-secret values live in `wrangler.jsonc` under `vars`:
 | Name | Example | Notes |
 | --- | --- | --- |
 | `RESEND_INBOUND_DOMAIN` | `mail.example.com` | Verified sending/receiving domain |
-| `MAIL_FROM_NAME` | `RFLARE` | Display name on outbound mail |
+| `MAIL_FROM_NAME` | `RFLARE` | Fallback From display name when the profile has none |
 | `PUBLIC_APP_URL` | `https://rflare.example.com` | Used for the webhook URL shown in Settings |
+| `MAIL_PROVIDER` | `resend` | Mail backend; only `resend` ships today |
+| `BLOB_STORE` | `database` | Attachment storage: `database` (default, no R2), `r2` or `auto` |
+
+### Storage: R2 is optional
+
+Attachments are binary blobs, so they do not belong in the message rows. By default RFLARE keeps
+them in a `blobs` table in Turso, which means the app runs with no object storage at all. If you
+have R2 enabled, add the binding back to `wrangler.jsonc` and set `BLOB_STORE` to `r2` (or `auto`
+to prefer the binding when it exists).
 
 Secrets go in `.dev.vars` locally and through `wrangler secret put` in production:
 
