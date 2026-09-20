@@ -11,20 +11,23 @@ import { parseAddressList, parseReferences, headerValue, serializeAddressList } 
 import { putObject } from './attachments';
 import type { ResendWebhookEvent } from './events';
 
-/**
- * Handles the `email.received` webhook. The webhook payload is metadata-only:
- * the body and attachments are fetched from the Resend Receiving API. Throwing
- * here makes the webhook return 500 so Resend retries; the resend_email_id
- * de-duplication check makes retries safe.
- */
-export async function handleInbound(event: ResendWebhookEvent): Promise<void> {
-  const emailId = event.data?.email_id;
-  if (!emailId) return;
+export interface IngestResult {
+  inserted: boolean;
+  messageId: string | null;
+}
 
+/**
+ * Fetches one received email from the Resend Receiving API and stores it.
+ *
+ * The webhook payload is metadata-only, so the body and attachment bytes come
+ * from separate API calls. De-duplication is by `resend_email_id`, which makes
+ * both webhook retries and repeated syncs safe.
+ */
+export async function ingestReceivedEmail(emailId: string): Promise<IngestResult> {
   const existing = await queryOne<{ id: string }>('SELECT id FROM messages WHERE resend_email_id = ? LIMIT 1', [
     emailId,
   ]);
-  if (existing) return;
+  if (existing) return { inserted: false, messageId: existing.id };
 
   const resend = getResend();
   const { data: full, error } = await resend.emails.receiving.get(emailId, { html_format: 'cid' });
@@ -64,7 +67,7 @@ export async function handleInbound(event: ResendWebhookEvent): Promise<void> {
   }
 
   const thread = await getThreadRow(threadId);
-  const isUnread = 1;
+  const messageId = crypto.randomUUID();
 
   await run(
     `INSERT INTO messages (
@@ -73,7 +76,7 @@ export async function handleInbound(event: ResendWebhookEvent): Promise<void> {
        is_read, created_at
      ) VALUES (?, ?, ?, 'inbound', ?, ?, ?, ?, ?, ?, ?, ?, ?, 'received', 0, ?)`,
     [
-      crypto.randomUUID(),
+      messageId,
       threadId,
       emailId,
       from,
@@ -88,11 +91,6 @@ export async function handleInbound(event: ResendWebhookEvent): Promise<void> {
       receivedAt,
     ],
   );
-  const messageRow = await queryOne<{ id: string }>('SELECT id FROM messages WHERE resend_email_id = ? LIMIT 1', [
-    emailId,
-  ]);
-  const messageId = messageRow?.id as string | undefined;
-  if (!messageId) throw new Error('Inbound message insert did not persist');
 
   // --- Attachments: metadata from `full`, bytes from the attachments API ---
   const inboundAttachments = full.attachments ?? [];
@@ -138,13 +136,24 @@ export async function handleInbound(event: ResendWebhookEvent): Promise<void> {
   const lastMessageAt =
     thread && Date.parse(thread.last_message_at) > Date.parse(receivedAt) ? thread.last_message_at : receivedAt;
   await run(
-    `UPDATE threads SET subject = ?, participants = ?, last_message_at = ?, unread_count = unread_count + ?, folder = CASE WHEN folder = 'trash' THEN 'inbox' ELSE folder END WHERE id = ?`,
+    `UPDATE threads SET subject = ?, participants = ?, last_message_at = ?, unread_count = unread_count + 1, folder = CASE WHEN folder = 'trash' THEN 'inbox' ELSE folder END WHERE id = ?`,
     [
       thread && thread.subject ? thread.subject : subject,
       serializeAddressList(participants),
       lastMessageAt,
-      isUnread,
       threadId,
     ],
   );
+
+  return { inserted: true, messageId };
+}
+
+/**
+ * Handles the `email.received` webhook. Throwing here makes the webhook return
+ * 500 so Resend retries; the de-duplication check inside makes retries safe.
+ */
+export async function handleInbound(event: ResendWebhookEvent): Promise<void> {
+  const emailId = event.data?.email_id;
+  if (!emailId) return;
+  await ingestReceivedEmail(emailId);
 }
