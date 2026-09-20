@@ -29,6 +29,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { apiFetch } from '@/lib/client';
+import { avatarSrc } from '@/lib/avatar';
 import { initials } from '@/lib/format';
 import { THEMES, type ThemeId } from '@/lib/theme';
 import { cn } from '@/lib/utils';
@@ -165,7 +166,7 @@ export default function FolderNav({
               className="hover:bg-accent/60 mt-1 flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-left transition-colors"
             >
               <Avatar className="size-7">
-                {user.hasAvatar ? <AvatarImage src="/api/profile/avatar" alt="" /> : null}
+                {avatarSrc(user) ? <AvatarImage src={avatarSrc(user) as string} alt="" /> : null}
                 <AvatarFallback className="bg-primary/15 text-primary text-[10px]">
                   {initials(user.displayName || user.email)}
                 </AvatarFallback>

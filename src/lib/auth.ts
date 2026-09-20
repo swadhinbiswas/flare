@@ -90,11 +90,12 @@ export async function verifySessionCookie(cookieValue: string | null): Promise<S
     email: string;
     display_name: string | null;
     avatar_key: string | null;
+    avatar_url: string | null;
     expires_at: string;
   }>(
     `SELECT sessions.id AS id, users.id AS user_id, users.email AS email,
             users.display_name AS display_name, users.avatar_key AS avatar_key,
-            sessions.expires_at AS expires_at
+            users.avatar_url AS avatar_url, sessions.expires_at AS expires_at
        FROM sessions JOIN users ON users.id = sessions.user_id
       WHERE sessions.id = ?`,
     [await sha256Hex(raw)],
@@ -113,7 +114,13 @@ export async function verifySessionCookie(cookieValue: string | null): Promise<S
     await run('UPDATE sessions SET expires_at = ? WHERE id = ?', [expiresAt, row.id]);
   }
 
-  return { id: row.user_id, email: row.email, displayName: row.display_name, hasAvatar: Boolean(row.avatar_key) };
+  return {
+    id: row.user_id,
+    email: row.email,
+    displayName: row.display_name,
+    avatarUrl: row.avatar_url,
+    hasAvatar: Boolean(row.avatar_key),
+  };
 }
 
 export function serializeSessionCookie(token: string, maxAge: number): string {
@@ -147,10 +154,20 @@ export async function authenticate(email: string, password: string): Promise<Ses
     password_hash: string;
     display_name: string | null;
     avatar_key: string | null;
-  }>('SELECT id, email, password_hash, display_name, avatar_key FROM users WHERE lower(email) = lower(?)', [email]);
+    avatar_url: string | null;
+  }>(
+    'SELECT id, email, password_hash, display_name, avatar_key, avatar_url FROM users WHERE lower(email) = lower(?)',
+    [email],
+  );
   if (!row) return null;
   const ok = await verifyPassword(password, row.password_hash);
   if (!ok) return null;
   await run('DELETE FROM sessions WHERE expires_at <= ?', [new Date().toISOString()]);
-  return { id: row.id, email: row.email, displayName: row.display_name, hasAvatar: Boolean(row.avatar_key) };
+  return {
+    id: row.id,
+    email: row.email,
+    displayName: row.display_name,
+    avatarUrl: row.avatar_url,
+    hasAvatar: Boolean(row.avatar_key),
+  };
 }

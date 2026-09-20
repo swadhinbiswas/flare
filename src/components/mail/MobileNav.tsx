@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { apiFetch } from '@/lib/client';
+import { avatarSrc } from '@/lib/avatar';
 import { initials } from '@/lib/format';
 import { THEMES, type ThemeId } from '@/lib/theme';
 import { cn } from '@/lib/utils';
@@ -145,7 +146,7 @@ export default function MobileNav({
           <div className="mt-auto px-3 pb-5">
             <div className="flex items-center gap-2.5 px-1 py-2">
               <Avatar className="size-8">
-                {user.hasAvatar ? <AvatarImage src="/api/profile/avatar" alt="" /> : null}
+                {avatarSrc(user) ? <AvatarImage src={avatarSrc(user) as string} alt="" /> : null}
                 <AvatarFallback className="bg-primary/15 text-primary text-[10px]">
                   {initials(user.displayName || user.email)}
                 </AvatarFallback>

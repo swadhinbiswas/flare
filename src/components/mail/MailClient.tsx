@@ -10,6 +10,7 @@ import MessageView from '@/components/mail/MessageView';
 import MobileNav from '@/components/mail/MobileNav';
 import ThreadList from '@/components/mail/ThreadList';
 import { apiFetch, jsonBody } from '@/lib/client';
+import { avatarSrc } from '@/lib/avatar';
 import { fullDateTime } from '@/lib/format';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { emailOf, htmlToPreview, normalizeSubject } from '@/lib/mail-utils';
@@ -523,7 +524,7 @@ export default function MailClient(props: MailClientProps) {
       detail={detail}
       loading={detailLoading}
       showBack={isMobile}
-      avatarUrl={user.hasAvatar ? '/api/profile/avatar' : null}
+      avatarUrl={avatarSrc(user)}
       onBack={() => setMobilePane('list')}
       onReply={(message) => startReply(message, 'reply')}
       onReplyAll={(message) => startReply(message, 'reply_all')}

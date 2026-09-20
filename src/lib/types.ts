@@ -2,6 +2,9 @@ export interface SessionUser {
   id: string;
   email: string;
   displayName: string | null;
+  /** External image URL, when set instead of an upload. */
+  avatarUrl: string | null;
+  /** True when an avatar blob is stored for this user. */
   hasAvatar: boolean;
 }
 
