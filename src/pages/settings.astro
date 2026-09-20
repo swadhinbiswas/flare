@@ -54,12 +54,11 @@ const tursoHost = (() => {
   }
 })();
 
-const receivingBadge =
-  !domain || domain.receiving !== 'verified'
-    ? ('warning' as const)
-    : domain.status === 'verified'
-      ? ('success' as const)
-      : ('warning' as const);
+// Resend reports capabilities as 'enabled' | 'disabled'; the domain itself has
+// a separate status ('pending' | 'verified' | ...).
+const sendingEnabled = domain?.sending === 'enabled';
+const receivingEnabled = domain?.receiving === 'enabled';
+const domainHealthy = domain?.status === 'verified' && sendingEnabled && receivingEnabled;
 ---
 
 <AppShell title="Settings · RFLARE" bodyClass="overflow-y-auto">
@@ -73,15 +72,17 @@ const receivingBadge =
       <SettingsActions client:load user={user} webhookUrl={webhookUrl} />
     </header>
 
-    {!domain || domain.status !== 'verified' || domain.receiving !== 'verified' ? (
+    {!domainHealthy ? (
       <Alert variant="warning" className="mb-5">
-        <AlertTitle>Receiving domain not verified yet</AlertTitle>
+        <AlertTitle>Domain not ready for sending and receiving</AlertTitle>
         <AlertDescription>
           {resendError
             ? `Resend could not be reached: ${resendError}`
             : !domain
               ? `${inboundDomain} is not present in your Resend account. Add it and verify the MX/DKIM/SPF records to receive mail.`
-              : `${inboundDomain} is "${domain.status}" (receiving: ${domain.receiving ?? 'unknown'}). Inbound mail will not arrive until Resend shows it as verified with receiving enabled.`}
+              : domain.status !== 'verified'
+                ? `${inboundDomain} is "${domain.status}". Inbound mail will not arrive until Resend shows it as verified.`
+                : `${inboundDomain} is verified but receiving is ${domain.receiving ?? 'unknown'}; add the MX record Resend shows in the dashboard to enable inbound mail.`}
         </AlertDescription>
       </Alert>
     ) : null}
@@ -137,10 +138,12 @@ const receivingBadge =
           <div class="flex items-center justify-between gap-4">
             <span class="text-muted-foreground">Capabilities</span>
             <span class="flex gap-2">
-              <Badge variant={domain?.sending === 'verified' ? 'success' : 'outline'}>
+              <Badge variant={sendingEnabled ? 'success' : 'warning'}>
                 sending: {domain?.sending ?? 'unknown'}
               </Badge>
-              <Badge variant={receivingBadge}>receiving: {domain?.receiving ?? 'unknown'}</Badge>
+              <Badge variant={receivingEnabled ? 'success' : 'warning'}>
+                receiving: {domain?.receiving ?? 'unknown'}
+              </Badge>
             </span>
           </div>
           {domain?.region ? (
