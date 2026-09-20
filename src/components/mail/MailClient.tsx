@@ -178,32 +178,75 @@ export default function MailClient(props: MailClientProps) {
     }
   }, [selectedId]);
 
-  const syncFromResend = useCallback(async () => {
-    if (syncing) return;
-    setSyncing(true);
-    try {
-      const result = await apiFetch<{ scanned: number; received: number; statuses: number; errors: string[] }>(
-        '/api/sync',
-        { method: 'POST', ...jsonBody({}) },
-      );
-      if (result.received > 0) {
-        toast.success(`Imported ${result.received} ${result.received === 1 ? 'message' : 'messages'} from Resend`);
-      } else if (result.statuses > 0) {
-        toast.success(`Updated ${result.statuses} delivery ${result.statuses === 1 ? 'status' : 'statuses'}`);
-      } else {
-        toast.info('Already up to date');
+  const syncFromResend = useCallback(
+    async (options: { silent?: boolean } = {}) => {
+      if (syncing) return;
+      setSyncing(true);
+      try {
+        const result = await apiFetch<{ scanned: number; received: number; statuses: number; errors: string[] }>(
+          '/api/sync',
+          { method: 'POST', ...jsonBody({}) },
+        );
+        const changed = result.received > 0 || result.statuses > 0;
+        if (result.received > 0) {
+          toast.success(`Imported ${result.received} ${result.received === 1 ? 'message' : 'messages'} from Resend`);
+        } else if (result.statuses > 0) {
+          toast.success(`Updated ${result.statuses} delivery ${result.statuses === 1 ? 'status' : 'statuses'}`);
+        } else if (!options.silent) {
+          toast.info('Already up to date');
+        }
+        if (result.errors.length > 0) {
+          toast.warning(`${result.errors.length} item(s) could not be synced`, { description: result.errors[0] });
+        }
+        // A background pull that found nothing should not churn the lists.
+        if (changed || !options.silent) {
+          await loadThreads({ q: queryRef.current.trim() });
+          if (selectedId) await openThread(selectedId);
+        }
+      } catch (error) {
+        if (!options.silent) toast.error(error instanceof Error ? error.message : 'Sync failed');
+      } finally {
+        setSyncing(false);
       }
-      if (result.errors.length > 0) {
-        toast.warning(`${result.errors.length} item(s) could not be synced`, { description: result.errors[0] });
+    },
+    [syncing, loadThreads, selectedId, openThread],
+  );
+
+  // Pull from Resend without being asked: shortly after load, then once a
+  // minute while the tab is visible, and when it regains focus (throttled).
+  useEffect(() => {
+    const THROTTLE_MS = 55_000;
+    const lastRunKey = 'rflare-last-auto-sync';
+    const canRun = () => {
+      try {
+        const last = Number(sessionStorage.getItem(lastRunKey) ?? 0);
+        return Date.now() - last > THROTTLE_MS;
+      } catch {
+        return true;
       }
-      await loadThreads({ q: queryRef.current.trim() });
-      if (selectedId) await openThread(selectedId);
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Sync failed');
-    } finally {
-      setSyncing(false);
-    }
-  }, [syncing, loadThreads, selectedId, openThread]);
+    };
+    const run = () => {
+      if (document.visibilityState !== 'visible' || !canRun()) return;
+      try {
+        sessionStorage.setItem(lastRunKey, String(Date.now()));
+      } catch {
+        // ignore
+      }
+      void syncFromResend({ silent: true });
+    };
+
+    const initial = setTimeout(run, 1000);
+    const interval = setInterval(run, 60_000);
+    const onFocus = () => run();
+    document.addEventListener('visibilitychange', onFocus);
+    window.addEventListener('focus', onFocus);
+    return () => {
+      clearTimeout(initial);
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', onFocus);
+      window.removeEventListener('focus', onFocus);
+    };
+  }, [syncFromResend]);
 
   // --- Thread actions -------------------------------------------------------
   const moveThread = useCallback(
@@ -480,6 +523,7 @@ export default function MailClient(props: MailClientProps) {
       detail={detail}
       loading={detailLoading}
       showBack={isMobile}
+      avatarUrl={user.hasAvatar ? '/api/profile/avatar' : null}
       onBack={() => setMobilePane('list')}
       onReply={(message) => startReply(message, 'reply')}
       onReplyAll={(message) => startReply(message, 'reply_all')}
