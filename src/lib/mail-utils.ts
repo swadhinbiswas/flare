@@ -112,7 +112,8 @@ export function previewFrom(text: string | null | undefined, html: string | null
 /**
  * Very small markdown-lite renderer for the compose body: paragraphs, links,
  * bold/italic/code and line breaks. Everything is escaped first, so this is
- * safe against HTML injection from the compose form.
+ * safe against HTML injection from the compose form. No colors are baked in;
+ * the message frame inherits the active theme.
  */
 export function renderComposeBody(value: string): string {
   const escaped = value
@@ -131,7 +132,17 @@ export function renderComposeBody(value: string): string {
   });
 
   const html = blocks.join('\n');
-  return `<div style="font-family:ui-sans-serif,system-ui,-apple-system,'Segoe UI',sans-serif;font-size:14px;line-height:1.6;color:#111827">${html}</div>`;
+  return `<div style="font-family:ui-sans-serif,system-ui,-apple-system,'Segoe UI',sans-serif;font-size:14px;line-height:1.6">${html}</div>`;
+}
+
+/**
+ * Older composed messages were stored with a hardcoded dark text color, which
+ * is unreadable on dark themes. Rewrite just that declaration on read; the
+ * generated wrapper is ours, so the match stays narrow.
+ */
+export function normalizeComposeHtml(html: string | null): string | null {
+  if (!html) return html;
+  return html.replace(/color:\s*#111827/gi, 'color:inherit');
 }
 
 /** Headers from providers are case-insensitive; Resend returns a plain object. */

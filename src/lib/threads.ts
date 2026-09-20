@@ -13,6 +13,7 @@ import type {
 import { attachmentsForMessages, deleteObjects, toAttachmentDto } from './attachments';
 import {
   emailOf,
+  normalizeComposeHtml,
   parseAddressList,
   previewFrom,
   serializeAddressList,
@@ -204,7 +205,7 @@ export async function getThreadDetail(
       bcc: parseAddressList(message.bcc_addresses),
       subject: message.subject,
       text: message.text_body,
-      html: rewriteCidReferences(message.html_body, attachments),
+      html: rewriteCidReferences(normalizeComposeHtml(message.html_body), attachments),
       messageIdHeader: message.message_id_header,
       inReplyTo: message.in_reply_to,
       status: message.status,
