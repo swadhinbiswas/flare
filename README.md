@@ -97,6 +97,121 @@ outbound statuses; it backs both the Sync button and the one-minute background p
 Status updates append to `email_events` and move `messages.status` forward only. Opening a thread
 clears its unread count, and folder badges come from one grouped query.
 
+## How mail connects
+
+FLARE never speaks SMTP. It talks to a provider's HTTP API, and the provider owns the MX record and
+the sending reputation. That split is why the app can run on Workers at all, and it is worth
+understanding before changing DNS.
+
+```mermaid
+sequenceDiagram
+  participant U as Sender or recipient
+  participant D as DNS
+  participant P as Mail provider
+  participant W as FLARE Worker
+  participant T as Turso + blobs
+
+  Note over W,T: Outbound
+  W->>T: insert message (queued) + claim attachments
+  W->>P: POST /emails (provider API, signed with the account key)
+  P-->>W: provider message id
+  W->>T: store id, status sent or scheduled
+  P->>D: recipient MX lookup
+  P->>U: deliver (SPF + DKIM for your domain)
+  P->>W: delivery webhook (signed)
+  W->>T: append email_events, advance status
+
+  Note over W,T: Inbound
+  U->>D: MX lookup for your domain
+  D-->>U: provider inbound host
+  U->>P: SMTP delivery
+  P->>P: SPF, DKIM, DMARC, MIME parse
+  P->>W: received webhook
+  W->>P: fetch body and attachments (Resend) or use the payload (Maileroo)
+  W->>T: thread match, insert message, store attachment bytes
+  W->>P: purge provider copy (Maileroo)
+```
+
+### DNS is the connection
+
+Sending and receiving need different records. Sending works as soon as SPF and DKIM verify; receiving
+only works once MX points at the provider.
+
+| Record | Purpose | Needed for |
+| --- | --- | --- |
+| `MX` | Tells the world where to deliver mail for your domain | Receiving |
+| `TXT` SPF | Authorizes the provider's servers to send as your domain | Sending |
+| `TXT` DKIM | Publishes the key the provider signs with, so receivers can verify | Sending |
+| `TXT` DMARC | Tells receivers what to do with mail that fails SPF and DKIM | Reputation |
+| `CNAME` tracking | Open and click tracking subdomain, optional | Status events |
+
+A subdomain (`mail.example.com`) is the better choice: it keeps the root domain's mail and
+reputation untouched, and it makes the split obvious when you read the records. Verify the domain in
+the provider dashboard, publish exactly what it shows, and wait for the status to read verified
+before pointing a webhook at the app. Settings mirrors that health check inside the app.
+
+### Outbound, step by step
+
+1. The composer posts to `/api/messages/send`. Recipients and attachments are validated first.
+2. A `messages` row is written with status `queued` (or `scheduled` when a delivery time was
+   chosen) and draft attachments are claimed. This happens before the provider call so the UI can
+   show the message instantly.
+3. The provider adapter sends it: Resend through its SDK to `api.resend.com`, Maileroo to
+   `smtp.maileroo.com/api/v2/emails` with an `X-Api-Key` header. Reply headers carry
+   `In-Reply-To` and `References` so the recipient's client threads it.
+4. The provider signs with your domain's DKIM key, looks up the recipient's MX, and delivers.
+5. Delivery events come back as webhooks. Each one is appended to `email_events`, and
+   `messages.status` only ever moves forward: `queued → sent → delivered → opened → clicked`, with
+   `bounced`, `complained`, `failed` and `canceled` terminal.
+6. If a webhook never arrives, the sync path asks the provider for the current state instead
+   (`emails.get` on Resend, webhooks only on Maileroo). That is the same code the Sync button and
+   the minute timer run.
+
+### Inbound, step by step
+
+1. Someone sends mail to your domain. Their server looks up MX, which points at the provider.
+2. The provider accepts the SMTP connection, checks SPF, DKIM and DMARC, parses the MIME, and
+   stores the body and attachments.
+3. It notifies the app. Resend posts a signed `email.received` with only metadata; Maileroo posts
+   the whole message and asks you to confirm authenticity by calling a one-time `validation_url`.
+4. The handler verifies before touching the database. A bad signature is a 400 and nothing is
+   written; an ingest failure is a 500 so the provider retries, and the insert is idempotent per
+   provider message id.
+5. The body is fetched (Resend Receiving API with `html_format=cid`) or read from the payload
+   (Maileroo), and attachment bytes are copied into blob storage while the signed URLs are valid.
+   Resend's download URLs expire after an hour; Maileroo keeps its copy for 72 hours and exposes a
+   `deletion_url` that the app calls once everything is stored.
+6. Threading resolves in order: `In-Reply-To`, then `References`, then a normalized subject plus a
+   shared participant, and finally a new thread. That fallback is what keeps mail from a client
+   that never sends proper headers in one place.
+7. The message lands with `status = received`, the thread's unread count and participants update,
+   `cid:` image references are rewritten to authenticated attachment URLs, and the folder badges
+   pick it up from the next query.
+
+### What each provider gives the app
+
+| Concept | Resend | Maileroo |
+| --- | --- | --- |
+| Send | `POST /emails` through the SDK | `POST /api/v2/emails` with `X-Api-Key` |
+| Delivery webhook auth | Svix signature, `whsec_` secret | HMAC-SHA256 hex in `x-maileroo-signature` |
+| Inbound model | Metadata webhook, then fetch content | Full message in the webhook |
+| Inbound auth | Svix signature | One-time `validation_url` |
+| Attachments | API returns signed URLs, valid 1 hour | Signed URLs in the payload, 72 hour retention |
+| Status lookup | `emails.get` reports `last_event` | Webhooks only |
+| Scheduling | `scheduledAt`, cancel by id | `scheduled_at`, list and delete |
+| Management API | Domains, webhooks, suppressions, metrics | Account API with scopes, plus statistics |
+
+### Where state lives
+
+| Concern | Stored in | Why |
+| --- | --- | --- |
+| Threads and messages | Turso | Small rows, queried constantly, must be consistent |
+| Delivery history | `email_events` | Append-only audit, drives the status timeline |
+| Attachment bytes | `blobs` (default) or R2 | Large binaries, kept out of the message rows |
+| Uploaded avatars | Same blob store | One code path for every binary |
+| Sessions | Turso | Server-side revocation, hashed tokens only |
+| Active account | Cookie | Per browser, no server state to clean up |
+
 ## Quick start
 
 You need Node 20+ and pnpm. The Turso CLI is only needed if you want a local database instead of a
@@ -425,4 +540,6 @@ palette. Templates, broadcasts, automations and dedicated IPs from the provider 
 intentionally not surfaced, they are marketing features rather than webmail. There is no IMAP or
 SMTP bridge, so FLARE cannot be used from Apple Mail or Thunderbird.
 
-No license file yet. Pick one before making the repository public.
+## License
+
+MIT. See [LICENSE](LICENSE) for the full text.

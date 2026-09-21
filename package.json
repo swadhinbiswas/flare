@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "description": "Self-hosted webmail for one Resend domain, on Cloudflare Workers, Astro and Turso.",
+  "license": "MIT",
   "type": "module",
   "packageManager": "pnpm@11.9.0",
   "repository": {
