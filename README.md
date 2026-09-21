@@ -260,6 +260,7 @@ pnpm seed-demo          # refuses a remote turso.io database unless --force is p
 | `pnpm dev` / `pnpm dev:stop` / `pnpm dev:status` / `pnpm dev:logs` | Dev server lifecycle |
 | `pnpm build` / `pnpm preview` | Production build, then the built Worker on workerd |
 | `pnpm typecheck` | `astro check` across `.astro` and TS/TSX |
+| `pnpm test` | Vitest over the pure logic: status ranking, mail helpers, MIME building |
 | `pnpm types` | `wrangler types` → regenerates `worker-configuration.d.ts` (committed) |
 | `pnpm migrate` | Applies `migrations/*.sql` once each |
 | `pnpm create-admin <email> <password> ["Display Name"]` | Creates or updates the user, revoking old sessions |
@@ -420,8 +421,8 @@ to prefer the binding when it exists).
 
 ## Deployment
 
-The repository ships two workflows: `ci.yml` runs typecheck and build on branches,
-`deploy.yml` runs the same checks and deploys on every push to `main`.
+The repository ships two workflows: `ci.yml` runs tests, typecheck and build on branches, and
+`deploy.yml` runs the same checks before deploying on every push to `main`.
 
 **Before the first deploy, enable R2 in the Cloudflare dashboard if you plan to use it.** The
 default database store does not need it; a Worker with an R2 binding does, and creating a bucket

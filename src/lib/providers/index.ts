@@ -16,15 +16,18 @@ function build(account: MailAccountConfig | null, envProvider: string): MailProv
       host: account?.config.host,
       port: account?.config.port ? Number(account.config.port) : undefined,
       secure: (account?.config.secure as 'tls' | 'starttls' | 'none' | undefined) ?? 'tls',
-      username: account ? accountSecret(account, 'username') : undefined,
-      password: account ? accountSecret(account, 'password') : undefined,
+      username: (account ? accountSecret(account, 'username') : '') || undefined,
+      password: (account ? accountSecret(account, 'password') : '') || undefined,
       fromEmail: account?.fromEmail,
       fromName: account?.fromName ?? undefined,
     });
   }
 
-  const apiKey = account ? accountSecret(account, 'apiKey') : undefined;
-  const webhookSecret = account ? accountSecret(account, 'webhookSecret') : undefined;
+  // Empty values fall through to the provider's environment fallback, so a
+  // database account without a stored webhook secret still honours
+  // MAILEROO_WEBHOOK_SECRET / RESEND_WEBHOOK_SECRET.
+  const apiKey = (account ? accountSecret(account, 'apiKey') : '') || undefined;
+  const webhookSecret = (account ? accountSecret(account, 'webhookSecret') : '') || undefined;
 
   if (providerId === 'maileroo') return createMailerooProvider({ apiKey, webhookSecret });
   return createResendProvider({ apiKey, webhookSecret });
