@@ -112,6 +112,7 @@ export function createMailerooProvider(config: MailerooConfig = {}): MailProvide
   return {
     id: 'maileroo',
     label: 'Maileroo',
+    defaultWebhookEvents: ['accepted', 'delivered', 'deferred', 'failed', 'rejected', 'opened', 'clicked', 'complained'],
 
     isConfigured() {
       return Boolean(apiKey);
@@ -284,15 +285,15 @@ export function createMailerooProvider(config: MailerooConfig = {}): MailProvide
       const body = await accountGet('/domains');
       const rows = Array.isArray(body.data) ? body.data : ((body.data as { domains?: unknown[] })?.domains ?? []);
       return (rows as Record<string, unknown>[]).map((row) => {
-        const status = String(row.status ?? row.verification_status ?? 'unknown');
-        const verified = ['verified', 'active', 'enabled'].includes(status.toLowerCase());
+        const active = row.status === true || String(row.status).toLowerCase() === 'true';
+        const status = active ? 'verified' : 'pending';
         return {
-          id: String(row.id ?? row.domain ?? ''),
-          name: String(row.domain ?? row.name ?? ''),
+          id: String(row.id ?? row.domain_name ?? ''),
+          name: String(row.domain_name ?? row.domain ?? row.name ?? ''),
           status,
-          region: String(row.region ?? ''),
-          sending: verified ? 'enabled' : 'pending',
-          receiving: String(row.inbound_status ?? (verified ? 'enabled' : 'pending')),
+          region: '',
+          sending: active ? 'enabled' : 'pending',
+          receiving: active ? 'enabled' : 'pending',
         };
       });
     },
@@ -301,7 +302,7 @@ export function createMailerooProvider(config: MailerooConfig = {}): MailProvide
       const body = await accountGet('/webhooks');
       const rows = Array.isArray(body.data) ? body.data : [];
       return (rows as Record<string, unknown>[]).map((row) => ({
-        id: String(row.id ?? ''),
+        id: String(row._id ?? row.id ?? ''),
         endpoint: String(row.callback_url ?? row.endpoint ?? ''),
         events: (row.event_types as string[] | undefined) ?? null,
         status: row.status ? String(row.status) : undefined,
@@ -311,12 +312,16 @@ export function createMailerooProvider(config: MailerooConfig = {}): MailProvide
     async createWebhook({ endpoint, events }) {
       const body = await accountSend('POST', '/webhooks', { callback_url: endpoint, event_types: events });
       const data = (body.data ?? {}) as Record<string, unknown>;
-      return {
-        id: String(data.id ?? ''),
-        endpoint,
-        events,
-        signingSecret: String(data.signing_secret ?? data.shared_secret ?? ''),
-      };
+      let id = String(data.id ?? data._id ?? '');
+      if (!id) {
+        // The create response only carries the shared secret; the id lives on
+        // the list resource as `_id`.
+        const listed = await accountGet('/webhooks');
+        const rows = Array.isArray(listed.data) ? (listed.data as Record<string, unknown>[]) : [];
+        const match = rows.find((row) => String(row.callback_url ?? '') === endpoint);
+        id = String(match?._id ?? match?.id ?? '');
+      }
+      return { id, endpoint, events, signingSecret: String(data.signing_secret ?? data.shared_secret ?? '') };
     },
 
     async deleteWebhook(id) {
@@ -345,15 +350,16 @@ export function createMailerooProvider(config: MailerooConfig = {}): MailProvide
     async getMetrics(days) {
       const end = new Date();
       const start = new Date(end.getTime() - days * 24 * 60 * 60 * 1000);
-      const body = await accountGet(
-        `/statistics?start_date=${start.toISOString().slice(0, 10)}&end_date=${end.toISOString().slice(0, 10)}`,
-      );
-      const data = (body.data ?? {}) as Record<string, unknown>;
-      const source = (data.stats ?? data.totals ?? data) as Record<string, unknown>;
-      const totals: Record<string, number> = {};
-      for (const [key, value] of Object.entries(source)) {
-        if (typeof value === 'number') totals[key] = value;
-      }
+      // Maileroo exposes a single aggregate summary rather than a range query.
+      const body = await accountGet('/statistics/summary');
+      const aggregate = ((body.data ?? {}) as { aggregate?: Record<string, number> }).aggregate ?? {};
+      const totals: Record<string, number> = {
+        delivered: Number(aggregate.delivered ?? 0),
+        bounced: Number(aggregate.bounced ?? 0),
+        opened: Number(aggregate.opens ?? 0),
+        clicked: Number(aggregate.clicks ?? 0),
+        suppressed: Number(aggregate.suppressions ?? 0),
+      };
       return { startDate: start.toISOString(), endDate: end.toISOString(), totals };
     },
   };

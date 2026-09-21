@@ -289,20 +289,33 @@ The secret starts with `whsec_` and the rest is base64. A made-up value is the f
 
 ### Maileroo
 
-- Send posts to `https://smtp.maileroo.com/api/v2/emails` with an `X-Api-Key` header. Scheduling
-  uses `scheduled_at`, and the app can list and delete scheduled email.
-- Delivery webhooks are signed with HMAC-SHA256 over the raw body in `x-maileroo-signature`.
-  Events map onto the same status vocabulary: `accepted → sent`, `deferred → delivery_delayed`,
-  `failed → bounced`, `rejected → failed`.
-- Inbound routing posts the whole message, so the handler parses it directly, validates the
-  one-time `validation_url`, downloads attachments from the signed URLs, then calls
-  `deletion_url` to purge Maileroo's copy.
-- The Account API (`https://api.maileroo.com/v1`, Bearer auth) backs the Settings tools: webhooks,
-  suppressions and statistics. The key needs the matching scopes (`webhooks.read`,
-  `suppressions.read`, `statistics.read`, `domains.read`).
+Maileroo uses two different credentials, and mixing them up is the usual first error:
 
-Set `MAILEROO_API_KEY` and `MAILEROO_WEBHOOK_SECRET`, point an inbound route at
-`https://<your-app>/api/webhooks/maileroo/<account-id>`, and add an account entry as shown below.
+- A **Sending Key**, created per domain under Domains then Sending Keys, authenticates the Email API
+  (`https://smtp.maileroo.com/api/v2`, `X-Api-Key`). That is what `MAILEROO_API_KEY` has to hold to
+  send; an Account API key alone is rejected with `invalid API key`.
+- The **Account API key** (`https://api.maileroo.com/v1`, Bearer auth) is what the Settings tools
+  use for domains, webhooks, suppressions and statistics. Keys carry scopes
+  (`domains.read`, `webhooks.read`, `suppressions.read`, `statistics.read`) and can have an IP
+  allowlist; `0.0.0.0/32` allows only the address `0.0.0.0`, so use `0.0.0.0/0` plus `::/0` or no
+  allowlist at all, because Workers egress from dynamic Cloudflare addresses.
+
+Sending also needs a verified domain. New accounts start with a managed
+`<id>.maileroo.org` domain, so either send from that address or add your own domain first.
+
+What was verified against the live API:
+
+- Delivery webhooks are signed with HMAC-SHA256 over the raw body in `x-maileroo-signature`. Their
+  event names are `accepted`, `delivered`, `deferred`, `failed`, `rejected`, `opened`, `clicked`
+  and `complained`, and the provider declares them so the Settings button subscribes correctly.
+- The webhook create response returns the shared secret but no id; the provider looks the id up
+  afterwards so the webhook can be removed from the app. The secret it returns is the value to keep.
+- Statistics come from `/statistics/summary` as an aggregate (`delivered`, `bounced`, `opens`,
+  `clicks`, `suppressions`), which the Deliverability card maps onto the app's labels.
+- Domains report `domain_name` and a boolean `status`, which the settings page reads directly.
+- Inbound routing posts the whole message, so the handler parses it directly, validates the one-time
+  `validation_url`, downloads attachments from the signed URLs, then calls `deletion_url` to purge
+  Maileroo's copy.
 
 ### SMTP
 

@@ -3,17 +3,7 @@ import { apiHandler, badRequest, json, readJsonBody, unauthorized } from '@/lib/
 import { getActiveAccount } from '@/lib/accounts';
 import { getMailProvider } from '@/lib/providers';
 
-const DEFAULT_EVENTS = [
-  'email.received',
-  'email.sent',
-  'email.scheduled',
-  'email.delivered',
-  'email.delivery_delayed',
-  'email.bounced',
-  'email.complained',
-  'email.opened',
-  'email.clicked',
-];
+// Providers name their events differently; each one declares its own list.
 
 export const GET: APIRoute = apiHandler(async ({ request, locals }) => {
   if (!locals.user) return unauthorized();
@@ -29,7 +19,7 @@ export const POST: APIRoute = apiHandler(async ({ request, locals }) => {
   const body = await readJsonBody<{ endpoint?: string; events?: string[] }>(request);
   const endpoint = body?.endpoint?.trim();
   if (!endpoint || !/^https?:\/\//.test(endpoint)) return badRequest('Provide the webhook URL to register.');
-  const result = await provider.createWebhook({ endpoint, events: body?.events ?? DEFAULT_EVENTS });
+  const result = await provider.createWebhook({ endpoint, events: body?.events ?? provider.defaultWebhookEvents });
   return json(result);
 });
 

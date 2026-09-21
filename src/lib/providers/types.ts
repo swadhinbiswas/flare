@@ -107,6 +107,8 @@ export interface ProviderWebhookEvent {
 export interface MailProvider {
   readonly id: string;
   readonly label: string;
+  /** Event names to subscribe when registering a webhook. */
+  readonly defaultWebhookEvents: string[];
 
   isConfigured(): boolean;
 

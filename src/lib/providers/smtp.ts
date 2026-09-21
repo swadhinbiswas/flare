@@ -25,6 +25,7 @@ export function createSmtpProvider(config: SmtpProviderConfig = {}): MailProvide
   return {
     id: 'smtp',
     label: 'SMTP',
+    defaultWebhookEvents: [],
 
     isConfigured() {
       return Boolean(config.host && (config.password || !config.username));

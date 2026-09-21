@@ -25,6 +25,17 @@ export function createResendProvider(config: ResendConfig = {}): MailProvider {
   return {
     id: 'resend',
     label: 'Resend',
+    defaultWebhookEvents: [
+      'email.received',
+      'email.sent',
+      'email.scheduled',
+      'email.delivered',
+      'email.delivery_delayed',
+      'email.bounced',
+      'email.complained',
+      'email.opened',
+      'email.clicked',
+    ],
 
     isConfigured() {
       return Boolean(env.RESEND_API_KEY);
