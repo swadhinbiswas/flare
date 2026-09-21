@@ -2,7 +2,7 @@
   "name": "flare",
   "version": "1.0.0",
   "private": true,
-  "description": "Self-hosted webmail for your own domain, with Resend and Maileroo, on Cloudflare Workers, Astro and Turso.",
+  "description": "Self-hosted webmail for your own domain, with Resend, Maileroo or SMTP, on Cloudflare Workers, Astro and Turso.",
   "license": "MIT",
   "type": "module",
   "packageManager": "pnpm@11.9.0",

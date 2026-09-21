@@ -8,7 +8,7 @@ import { handleWebhookRequest } from '@/lib/webhook-handler';
  * /api/webhooks/<provider>/<accountId>.
  */
 export const POST: APIRoute = async ({ request }) => {
-  const account = getAccount('primary') ?? listAccounts()[0];
+  const account = (await getAccount('primary')) ?? (await listAccounts())[0];
   if (!account) return new Response('No mail account configured', { status: 500 });
   return handleWebhookRequest(request, account);
 };

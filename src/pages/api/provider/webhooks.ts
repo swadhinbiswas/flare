@@ -17,14 +17,14 @@ const DEFAULT_EVENTS = [
 
 export const GET: APIRoute = apiHandler(async ({ request, locals }) => {
   if (!locals.user) return unauthorized();
-  const provider = getMailProvider(getActiveAccount(request.headers.get('cookie')));
+  const provider = getMailProvider(await getActiveAccount(request.headers.get('cookie')));
   const webhooks = await provider.listWebhooks();
   return json({ webhooks, provider: provider.id });
 });
 
 export const POST: APIRoute = apiHandler(async ({ request, locals }) => {
   if (!locals.user) return unauthorized();
-  const account = getActiveAccount(request.headers.get('cookie'));
+  const account = await getActiveAccount(request.headers.get('cookie'));
   const provider = getMailProvider(account);
   const body = await readJsonBody<{ endpoint?: string; events?: string[] }>(request);
   const endpoint = body?.endpoint?.trim();
@@ -35,7 +35,7 @@ export const POST: APIRoute = apiHandler(async ({ request, locals }) => {
 
 export const DELETE: APIRoute = apiHandler(async ({ request, locals }) => {
   if (!locals.user) return unauthorized();
-  const provider = getMailProvider(getActiveAccount(request.headers.get('cookie')));
+  const provider = getMailProvider(await getActiveAccount(request.headers.get('cookie')));
   const body = await readJsonBody<{ id?: string }>(request);
   const id = body?.id?.trim();
   if (!id) return badRequest('Provide the webhook id.');

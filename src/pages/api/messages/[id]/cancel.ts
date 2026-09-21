@@ -11,7 +11,7 @@ export const POST: APIRoute = apiHandler(async ({ params, request, locals }) => 
   const id = params.id;
   if (!id) return badRequest('Missing message id.');
 
-  const account = getActiveAccount(request.headers.get('cookie'));
+  const account = await getActiveAccount(request.headers.get('cookie'));
   const message = await queryOne<{ id: string; status: string; resend_email_id: string | null; thread_id: string }>(
     'SELECT id, status, resend_email_id, thread_id FROM messages WHERE id = ? AND account_id = ?',
     [id, account.id],

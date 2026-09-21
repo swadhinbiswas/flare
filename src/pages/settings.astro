@@ -10,10 +10,11 @@ import { getMailProvider } from '@/lib/providers';
 import { accountSummaries, getActiveAccount } from '@/lib/accounts';
 import ProviderTools from '@/components/settings/ProviderTools';
 import ProfileForm from '@/components/settings/ProfileForm';
+import AccountsManager from '@/components/settings/AccountsManager';
 
 const user = Astro.locals.user!;
-const account = getActiveAccount(Astro.request.headers.get('cookie'));
-const accounts = accountSummaries();
+const account = await getActiveAccount(Astro.request.headers.get('cookie'));
+const accounts = await accountSummaries();
 const provider = getMailProvider(account);
 const webhookUrl = new URL(`/api/webhooks/${account.provider}/${account.id}`, env.PUBLIC_APP_URL).toString();
 const inboundDomain = account.inboundDomain ?? env.RESEND_INBOUND_DOMAIN;
@@ -128,30 +129,8 @@ const domainHealthy = domain?.status === 'verified' && sendingEnabled && receivi
             <code class="text-xs">MAIL_ACCOUNTS</code> variable; credentials stay in Wrangler secrets.
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-3 text-sm">
-          {accounts.map((item) => (
-            <div class="flex items-center justify-between gap-4">
-              <span>
-                <span class="block font-medium">
-                  {item.label}
-                  {item.id === account.id ? ' · active' : ''}
-                </span>
-                <span class="text-muted-foreground block text-xs">
-                  {item.provider}
-                  {item.fromEmail ? ` · from ${item.fromEmail}` : ''}
-                  {item.inboundDomain ? ` · ${item.inboundDomain}` : ''}
-                </span>
-              </span>
-              <Badge variant={item.configured ? 'success' : 'warning'}>
-                {item.configured ? 'configured' : 'missing API key'}
-              </Badge>
-            </div>
-          ))}
-          <p class="text-muted-foreground text-xs">
-            Add an account by extending <code class="text-xs">MAIL_ACCOUNTS</code> with an id, a provider
-            (resend or maileroo), a From address and the names of its credential variables. Switch accounts from the
-            sidebar. Each account gets its own webhook endpoint, shown below.
-          </p>
+        <CardContent className="text-sm">
+          <AccountsManager client:load accounts={accounts} activeId={account.id} />
         </CardContent>
       </Card>
 

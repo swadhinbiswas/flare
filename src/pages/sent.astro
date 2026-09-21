@@ -5,8 +5,8 @@ import { getFolderCounts, listThreads } from '@/lib/threads';
 import { accountSummaries, getActiveAccount } from '@/lib/accounts';
 
 const user = Astro.locals.user!;
-const account = getActiveAccount(Astro.request.headers.get('cookie'));
-const accounts = accountSummaries();
+const account = await getActiveAccount(Astro.request.headers.get('cookie'));
+const accounts = await accountSummaries();
 const [result, counts] = await Promise.all([listThreads({ accountId: account.id, folder: 'sent' }), getFolderCounts(account.id)]);
 ---
 

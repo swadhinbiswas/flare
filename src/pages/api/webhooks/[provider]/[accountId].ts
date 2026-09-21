@@ -7,7 +7,7 @@ import { handleWebhookRequest } from '@/lib/webhook-handler';
  * The route resolves the account so each one can use its own signing secret.
  */
 export const POST: APIRoute = async ({ request, params }) => {
-  const account = getAccount(params.accountId);
+  const account = await getAccount(params.accountId);
   if (!account) return new Response('Unknown account', { status: 404 });
   if (params.provider && params.provider.toLowerCase() !== account.provider) {
     return new Response('Provider mismatch', { status: 404 });
@@ -16,6 +16,6 @@ export const POST: APIRoute = async ({ request, params }) => {
 };
 
 export const GET: APIRoute = async ({ params }) => {
-  const account = getAccount(params.accountId) ?? listAccounts()[0];
+  const account = (await getAccount(params.accountId)) ?? (await listAccounts())[0];
   return new Response(`Webhook endpoint for ${account?.label ?? 'unknown'}. POST only.`, { status: 405 });
 };

@@ -17,7 +17,7 @@ export const POST: APIRoute = apiHandler(async ({ request, locals }) => {
       user,
       input,
       displayName: user.displayName?.trim() || env.MAIL_FROM_NAME || 'FLARE',
-      account: getActiveAccount(request.headers.get('cookie')),
+      account: await getActiveAccount(request.headers.get('cookie')),
     });
     return json(result);
   } catch (error) {

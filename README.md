@@ -303,6 +303,14 @@ The secret starts with `whsec_` and the rest is base64. A made-up value is the f
 Set `MAILEROO_API_KEY` and `MAILEROO_WEBHOOK_SECRET`, point an inbound route at
 `https://<your-app>/api/webhooks/maileroo/<account-id>`, and add an account entry as shown below.
 
+### SMTP
+
+Any relay can be a send-only account: add it in Settings with host, port, TLS mode, username and
+password. Resend and Maileroo both offer SMTP on port 465, which is the mode to use when you have
+the choice; the `starttls` option depends on the runtime performing the TLS upgrade at connect
+time and some servers reject that. Workers cannot listen for inbound SMTP, so an SMTP account only
+sends. Receiving keeps happening through whichever account owns the domain's MX record.
+
 ### Adding a provider
 
 Implement `MailProvider` from `src/lib/providers/types.ts` and add a case to
@@ -312,8 +320,15 @@ declares what its API can do; the UI degrades gracefully when one is missing.
 
 ## Accounts
 
-`MAIL_ACCOUNTS` in `wrangler.jsonc` is a JSON array. Each entry names its credentials by
-environment variable, so secrets never live in the database:
+There are two ways to define a mail account, and they mix freely.
+
+**From Settings** is the quick path: pick Resend, Maileroo or SMTP, fill in the From address and the
+credentials, and it becomes the active account. Secrets are encrypted with AES-GCM under a key
+derived from `SESSION_SECRET` before they reach Turso, so provider keys never sit in the database in
+clear text. Accounts created this way can be removed from the same card.
+
+**From the environment** suits infrastructure as code. `MAIL_ACCOUNTS` in `wrangler.jsonc` is a JSON
+array where every entry names its credentials by environment variable:
 
 ```json
 [
@@ -326,30 +341,24 @@ environment variable, so secrets never live in the database:
     "inboundDomain": "example.com",
     "apiKeyEnv": "RESEND_API_KEY",
     "webhookSecretEnv": "RESEND_WEBHOOK_SECRET"
-  },
-  {
-    "id": "work",
-    "provider": "maileroo",
-    "label": "Work",
-    "fromEmail": "me@work.example",
-    "inboundDomain": "work.example",
-    "apiKeyEnv": "MAILEROO_API_KEY",
-    "webhookSecretEnv": "MAILEROO_WEBHOOK_SECRET"
   }
 ]
 ```
 
-`wrangler.jsonc` takes JSON, so the value has to be that JSON as a single string. Keep the
-readable version in a scratch file and generate the string when you edit the config:
+`wrangler.jsonc` takes JSON, so the value has to be that array as a single string:
 
 ```bash
 node -e "console.log(JSON.stringify(require('./accounts.json')))"
 ```
 
-Leave it empty and the app synthesises one primary account from the `RESEND_*` values, which is
-what a fresh install needs. Threads and messages carry `account_id`; the active account lives in
-a cookie and is switched from the sidebar or the mobile drawer. Each account gets its own webhook
-endpoint so signatures are verified with the right secret.
+One rule ties both together: the environment account is always present as `primary` unless a
+database row claims that id. Existing mail therefore never disappears when you start adding
+accounts. Threads and messages carry `account_id`, the active account lives in a cookie and is
+switched from the sidebar, the mobile drawer or the account card, and every account has its own
+webhook endpoint so signatures verify with the right secret.
+
+An account's provider decides what it can do. Resend and Maileroo send and receive; SMTP only
+sends; each provider reports the APIs it does not have instead of failing silently.
 
 ## Profile
 
@@ -551,6 +560,12 @@ inbound route must point at `/api/webhooks/maileroo/<account-id>`.
 **Scheduled cancel fails with "Email is not scheduled".** Resend accepts the send slightly before
 it flips the message into the scheduled state. The provider retries that specific error a few
 times; if it still fails, the message has not settled yet.
+
+**SMTP send fails against port 587.** STARTTLS depends on the runtime upgrading the socket at
+connect time, which not every server accepts. Use implicit TLS on 465.
+
+**An SMTP account has no inbox.** That is expected. SMTP can only send; inbound mail arrives
+through the account whose domain MX points at a provider with a receiving webhook.
 
 **Webhooks during local development.** Providers cannot reach localhost. Tunnel it
 (`cloudflared tunnel --url http://localhost:8787`), then either register a second dev webhook or

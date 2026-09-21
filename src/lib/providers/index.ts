@@ -1,6 +1,8 @@
 import { env } from 'cloudflare:workers';
+import { accountSecret } from '../accounts';
 import { createMailerooProvider } from './maileroo';
 import { createResendProvider } from './resend';
+import { createSmtpProvider } from './smtp';
 import type { MailProvider } from './types';
 import type { MailAccountConfig } from '../accounts';
 
@@ -8,31 +10,34 @@ export type { MailProvider } from './types';
 
 function build(account: MailAccountConfig | null, envProvider: string): MailProvider {
   const providerId = (account?.provider ?? envProvider).toLowerCase();
-  const apiKey = account ? readSecret(account.apiKeyEnv) : undefined;
-  const webhookSecret = account ? readSecret(account.webhookSecretEnv) : undefined;
 
-  switch (providerId) {
-    case 'maileroo':
-      return createMailerooProvider({ apiKey, webhookSecret });
-    case 'resend':
-    default:
-      return createResendProvider({ apiKey, webhookSecret });
+  if (providerId === 'smtp') {
+    return createSmtpProvider({
+      host: account?.config.host,
+      port: account?.config.port ? Number(account.config.port) : undefined,
+      secure: (account?.config.secure as 'tls' | 'starttls' | 'none' | undefined) ?? 'tls',
+      username: account ? accountSecret(account, 'username') : undefined,
+      password: account ? accountSecret(account, 'password') : undefined,
+      fromEmail: account?.fromEmail,
+      fromName: account?.fromName ?? undefined,
+    });
   }
-}
 
-function readSecret(name: string): string {
-  const bag = env as unknown as Record<string, string | undefined>;
-  return bag[name] ?? '';
+  const apiKey = account ? accountSecret(account, 'apiKey') : undefined;
+  const webhookSecret = account ? accountSecret(account, 'webhookSecret') : undefined;
+
+  if (providerId === 'maileroo') return createMailerooProvider({ apiKey, webhookSecret });
+  return createResendProvider({ apiKey, webhookSecret });
 }
 
 /**
- * Resolves a mail backend. Pass an account to use its provider and secrets;
- * without one it falls back to MAIL_PROVIDER and the RESEND_* environment.
+ * Resolves a mail backend. Pass an account to use its provider, config and
+ * secrets (decrypted from the vault, or read from the environment for the
+ * synthesised primary account). Built per call on purpose: the SDK clients and
+ * credentials underneath are cached, and a module-level cache here served stale
+ * code during hot reloads.
  */
 export function getMailProvider(account?: MailAccountConfig | null): MailProvider {
-  // Built per call on purpose: the providers are thin wrappers (the SDK clients
-  // and credentials they touch are cached), and a module-level cache here served
-  // stale code during hot reloads.
   const envProvider = (env.MAIL_PROVIDER ?? 'resend').toLowerCase();
   return build(account ?? null, envProvider);
 }

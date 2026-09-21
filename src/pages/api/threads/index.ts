@@ -5,7 +5,7 @@ import { getActiveAccount } from '@/lib/accounts';
 import { FOLDERS, type Folder } from '@/lib/types';
 
 export const GET: APIRoute = apiHandler(async ({ url, request }) => {
-  const account = getActiveAccount(request.headers.get('cookie'));
+  const account = await getActiveAccount(request.headers.get('cookie'));
   const folderParam = url.searchParams.get('folder') ?? 'inbox';
   const folder: Folder | 'all' =
     folderParam === 'all' ? 'all' : FOLDERS.includes(folderParam as Folder) ? (folderParam as Folder) : 'inbox';
