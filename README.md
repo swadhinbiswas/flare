@@ -473,6 +473,7 @@ Every route below requires a session except the webhook, which authenticates by 
 
 | Method | Path | Purpose |
 | --- | --- | --- |
+| GET | `/api/health` | Deployment check: `{ ok, missing[] }`, names only, no values |
 | POST | `/api/auth/login` | Email + password, sets the session cookie (10 attempts / 15 min / IP) |
 | POST | `/api/auth/logout` | Clears the session |
 | GET | `/api/auth/session` | Current user, or 401 |
@@ -569,6 +570,12 @@ docs/                        logo and screenshots
 ```
 
 ## Troubleshooting
+
+**Login returns a blank 500 after a deploy.** Open `/api/health`. If it reports a 503 with a
+`missing` list, the Worker has no runtime secrets: set `TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN`,
+`SESSION_SECRET` and the provider keys under the Worker's Variables and Secrets, then redeploy. The
+login endpoint returns the same list in its error body.
+
 
 **`Invalid webhook signature` on every event.** The secret is wrong, or the body was parsed before
 verification. Paste the exact value; for Resend it must be base64 after `whsec_`.

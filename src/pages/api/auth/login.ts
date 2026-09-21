@@ -1,12 +1,19 @@
 import type { APIRoute } from 'astro';
 import { apiHandler, errorResponse, json, readJsonBody } from '@/lib/api';
 import { authenticate, createSession, serializeSessionCookie } from '@/lib/auth';
+import { configErrorMessage, runtimeConfigIssues } from '@/lib/config';
 import { hit, reset } from '@/lib/rate-limit';
 
 const LOGIN_LIMIT = 10;
 const LOGIN_WINDOW_SECONDS = 15 * 60;
 
 export const POST: APIRoute = apiHandler(async ({ request }) => {
+  const missing = runtimeConfigIssues();
+  if (missing.length > 0) {
+    console.error(`[auth] refusing to serve: missing ${missing.join(', ')}`);
+    return errorResponse(500, configErrorMessage(missing), { missing });
+  }
+
   const body = await readJsonBody<{ email?: string; password?: string }>(request);
   const email = body?.email?.trim() ?? '';
   const password = body?.password ?? '';
