@@ -55,24 +55,34 @@ runs comfortably on a laptop with no Cloudflare account at all.
 
 ## Screenshots
 
-<table>
+Light and dark are both first class. This is the three-pane layout with a conversation open in the
+light palette, including the per-message delivery timeline:
+
+<p align="center">
+  <img src="docs/screenshots/thread-light.png?v=2" alt="Conversation view in the light theme" width="960" />
+</p>
+
+The same views in Proton, the default dark palette:
+
+<table align="center">
   <tr>
-    <td width="62%"><img src="docs/screenshots/thread-dark.png?v=2" alt="Three-pane layout with a conversation open" /></td>
-    <td width="38%"><img src="docs/screenshots/inbox-dark.png?v=2" alt="Inbox" /></td>
+    <td align="center" width="50%"><img src="docs/screenshots/thread-dark.png?v=2" alt="Conversation view" width="470" /></td>
+    <td align="center" width="50%"><img src="docs/screenshots/inbox-dark.png?v=2" alt="Inbox with unread counts" width="470" /></td>
   </tr>
   <tr>
-    <td><img src="docs/screenshots/compose.png?v=2" alt="Compose sheet with attachment chips" /></td>
-    <td><img src="docs/screenshots/command-palette.png?v=2" alt="Command palette" /></td>
-  </tr>
-  <tr>
-    <td><img src="docs/screenshots/mobile-inbox.png?v=2" alt="Mobile inbox" width="70%" /></td>
-    <td><img src="docs/screenshots/mobile-thread.png?v=2" alt="Mobile thread view" width="70%" /></td>
+    <td align="center" width="50%"><img src="docs/screenshots/compose.png?v=2" alt="Compose sheet with attachments and scheduling" width="470" /></td>
+    <td align="center" width="50%"><img src="docs/screenshots/command-palette.png?v=2" alt="Command palette searching every folder" width="470" /></td>
   </tr>
 </table>
 
-Light and dark are both first class:
+Below `md` the layout collapses to a single pane with a drawer:
 
-![Light theme](docs/screenshots/thread-light.png)
+<table align="center">
+  <tr>
+    <td align="center" width="50%"><img src="docs/screenshots/mobile-inbox.png?v=2" alt="Mobile inbox" width="210" /></td>
+    <td align="center" width="50%"><img src="docs/screenshots/mobile-thread.png?v=2" alt="Mobile thread view" width="210" /></td>
+  </tr>
+</table>
 
 ## Architecture
 
