@@ -1,0 +1,19 @@
+# Build-script approvals. pnpm 11 reads the `allowBuilds` map and even writes a
+# stub into this file when it blocks a package; pnpm 10 reads the list below.
+# These four ship native binaries and need their install scripts. Without them
+# a clean install fails with ERR_PNPM_IGNORED_BUILDS (Cloudflare's builder hit
+# exactly that).
+packages:
+  - .
+
+allowBuilds:
+  esbuild: true
+  workerd: true
+  '@tailwindcss/oxide': true
+  sharp: true
+
+onlyBuiltDependencies:
+  - esbuild
+  - workerd
+  - '@tailwindcss/oxide'
+  - sharp
