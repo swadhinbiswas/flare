@@ -6,12 +6,12 @@
   <img alt="runtime" src="https://img.shields.io/badge/runtime-Cloudflare%20Workers-f38020?logo=cloudflare&logoColor=white" />
   <img alt="framework" src="https://img.shields.io/badge/framework-Astro%207-ff5d01?logo=astro&logoColor=white" />
   <img alt="database" src="https://img.shields.io/badge/database-Turso%20(libSQL)-4ff8d2" />
-  <img alt="email" src="https://img.shields.io/badge/email-Resend%20%2B%20Maileroo-000000" />
+  <img alt="email" src="https://img.shields.io/badge/email-Resend%20%7C%20Maileroo%20%7C%20SMTP-000000" />
 </p>
 
-FLARE is a self-hosted webmail client for your own domain. Send through Resend or Maileroo,
-receive through their inbound webhooks, keep everything in a Turso database, and serve it from a
-single Cloudflare Worker. No IMAP bridge, no mailbox quota, no third party reading your mail.
+FLARE is a self-hosted webmail client for your own domain. Send through Resend, Maileroo or any
+SMTP relay, receive through provider webhooks, keep everything in a Turso database, and serve it
+from a single Cloudflare Worker. No IMAP bridge, no mailbox quota, no third party reading your mail.
 
 It is built for the single-owner case: a handful of accounts, one login, a UI that behaves like a
 real mail client. The whole thing deploys as one Worker with a static asset bundle, and it also
@@ -233,9 +233,11 @@ pnpm install
 # Local libSQL server (no Turso account required)
 PATH="$HOME/.turso:$PATH" turso dev -f local.db -p 8080 &
 
-cp .dev.vars.example .dev.vars   # set SESSION_SECRET and your provider key
+cp .dev.vars.example .dev.vars   # Worker runtime secrets: SESSION_SECRET, provider keys
+cp .env.example .env             # CLI credentials: mailbox login, Turso, provider keys
+
 pnpm migrate
-pnpm create-admin            # credentials come from FLARE_ADMIN_* in .env
+pnpm create-admin                # reads FLARE_ADMIN_EMAIL and FLARE_ADMIN_PASSWORD from .env
 pnpm dev
 ```
 
@@ -477,7 +479,7 @@ Every route below requires a session except the webhook, which authenticates by 
 | GET | `/api/auth/session` | Current user, or 401 |
 | GET/PATCH | `/api/profile` | Read or update the display name and avatar URL |
 | GET/POST/DELETE | `/api/profile/avatar` | Read, upload or clear the picture |
-| GET/POST | `/api/accounts` | List accounts, switch the active one |
+| GET/POST/PUT/DELETE | `/api/accounts` | List accounts, switch, create (encrypted secrets) or remove |
 | GET | `/api/threads?folder=inbox\|sent\|archive\|trash\|all&q=&cursor=` | Thread list plus folder counts |
 | GET | `/api/threads/:id` | Thread, messages, attachments, event timelines (marks read) |
 | PATCH | `/api/threads/:id` | Move to another folder |
@@ -554,11 +556,16 @@ src/
   pages/api/                 auth, profile, accounts, threads, messages, attachments, sync, provider, webhooks
   components/ui/             shadcn primitives
   components/mail/           MailClient island and its parts
-  components/settings/       profile, provider tools, actions
-  lib/                       db, auth, accounts, profile, providers, storage, mail, sync, helpers
+  components/settings/       profile, accounts manager, provider tools, actions
+  lib/
+    accounts.ts  vault.ts     account store and the AES-GCM secret vault
+    providers/                MailProvider contract, Resend, Maileroo, SMTP
+    smtp/                     SMTP client (cloudflare:sockets) and the MIME builder
+    storage/                  blob store contract, Turso and R2 backends
+    db, auth, profile, mail, sync, helpers, plus colocated *.test.ts
 migrations/                  SQL applied by pnpm migrate
 scripts/                     migrate, create-admin, seed-demo
-.github/workflows/           ci.yml and deploy.yml
+.github/workflows/           ci.yml (test, typecheck, build) and deploy.yml
 docs/                        logo and screenshots
 ```
 
@@ -574,6 +581,14 @@ inbound route must point at `/api/webhooks/maileroo/<account-id>`.
 **Scheduled cancel fails with "Email is not scheduled".** Resend accepts the send slightly before
 it flips the message into the scheduled state. The provider retries that specific error a few
 times; if it still fails, the message has not settled yet.
+
+**Maileroo says `invalid API key` when sending.** The Email API needs a Sending Key created per
+domain (Domains then Sending Keys), not the account API key used for the Settings tools. An account
+with no Sending Key cannot send even though its domain reads as verified.
+
+**Maileroo says `Your IP address is not authorized`.** The key has an IP allowlist. `0.0.0.0/32`
+allows only the address `0.0.0.0`; use `0.0.0.0/0` plus `::/0`, or clear the allowlist, because
+Workers egress from dynamic Cloudflare addresses.
 
 **SMTP send fails against port 587.** STARTTLS depends on the runtime upgrading the socket at
 connect time, which not every server accepts. Use implicit TLS on 465.
