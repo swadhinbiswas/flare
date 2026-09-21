@@ -436,37 +436,36 @@ to prefer the binding when it exists).
 
 ## Deployment
 
-The repository ships two workflows: `ci.yml` runs tests, typecheck and build on branches, and
-`deploy.yml` runs the same checks before deploying on every push to `main`.
+Cloudflare's Git integration is the intended path: connect the repository once and every push to
+`main` builds and deploys. No Cloudflare credentials live in GitHub.
 
-**Before the first deploy, enable R2 in the Cloudflare dashboard if you plan to use it.** The
-default database store does not need it; a Worker with an R2 binding does, and creating a bucket
-without R2 enabled returns `code: 10042`.
+1. Workers & Pages then Create, choose **Worker**, then Connect to Git, and pick this repository.
+2. Build settings:
+   - Build command: `pnpm build`
+   - Deploy command: `npx wrangler deploy`
+   - Root directory: `/`
+   - Set `NODE_VERSION=22` if the builder picks an older Node.
+3. Set the app secrets once, from a terminal or the dashboard under the Worker's Variables and
+   Secrets: `RESEND_API_KEY`, `RESEND_WEBHOOK_SECRET`, `TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN`,
+   `SESSION_SECRET`, plus the Maileroo pair if you use it.
+4. Seed the production database and the login once:
 
-```bash
-# 1. Push the repo, then create an API token with:
-#      Account > Workers Scripts > Edit
-#      Account > Workers R2 Storage > Edit   (only if you use R2)
-gh secret set CLOUDFLARE_API_TOKEN
-gh secret set CLOUDFLARE_ACCOUNT_ID
+   ```bash
+   TURSO_DATABASE_URL="libsql://…" TURSO_AUTH_TOKEN="…" pnpm migrate
+   TURSO_DATABASE_URL="libsql://…" TURSO_AUTH_TOKEN="…" pnpm create-admin
+   ```
 
-# 2. App secrets are set once and survive deploys
-wrangler secret put RESEND_API_KEY
-wrangler secret put RESEND_WEBHOOK_SECRET
-wrangler secret put TURSO_DATABASE_URL
-wrangler secret put TURSO_AUTH_TOKEN
-wrangler secret put SESSION_SECRET
+5. Attach your domain (Worker, Settings, Domains and Routes), update `PUBLIC_APP_URL`, then register
+   the webhook. The Settings page has a button that creates it and shows the signing secret to store.
 
-# 3. Data, then deploy
-TURSO_DATABASE_URL="libsql://…" TURSO_AUTH_TOKEN="…" pnpm migrate
-TURSO_DATABASE_URL="libsql://…" TURSO_AUTH_TOKEN="…" pnpm create-admin you@example.com "…"
-pnpm deploy
-```
+Prefer a deploy from your laptop? `pnpm deploy` runs the same command the builder does. The
+remaining workflow, `.github/workflows/ci.yml`, only runs tests, typecheck and build on pushes and
+pull requests; there is no deploy job and no Cloudflare secret in the repository.
 
-Attach your domain to the Worker (Settings, Domains & Routes), update `PUBLIC_APP_URL`, then
-register the webhook against the final URL. The Settings page has a button that registers it for
-you and shows the signing secret to store. Cloudflare's own Git integration works too: build
-`pnpm build`, deploy `pnpm exec wrangler deploy`.
+A note for the Cloudflare builder: pnpm 10 and later refuse dependency install scripts unless they
+are approved, which fails the install step with `ERR_PNPM_IGNORED_BUILDS`. `package.json` lists the
+ones this stack needs (`esbuild`, `workerd`, `@tailwindcss/oxide`, `sharp`) under
+`pnpm.onlyBuiltDependencies`, so the builder runs them.
 
 ## API
 
