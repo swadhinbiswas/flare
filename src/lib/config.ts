@@ -1,5 +1,3 @@
-import { env } from 'cloudflare:workers';
-
 /**
  * Runtime configuration checks. A missing secret used to surface as a blank
  * 500; now the app names what is missing so a deploy can be diagnosed from
@@ -13,10 +11,6 @@ export function missingRuntimeConfig(values: Record<string, string | undefined>)
     const value = values[key];
     return !value || value.trim().length === 0;
   });
-}
-
-export function runtimeConfigIssues(): string[] {
-  return missingRuntimeConfig(env as unknown as Record<string, string | undefined>);
 }
 
 export function configErrorMessage(missing: string[]): string {

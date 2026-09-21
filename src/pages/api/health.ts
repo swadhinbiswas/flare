@@ -1,6 +1,6 @@
 import type { APIRoute } from 'astro';
 import { json } from '@/lib/api';
-import { runtimeConfigIssues } from '@/lib/config';
+import { runtimeConfigIssues } from '@/lib/runtime-config';
 
 /**
  * Public on purpose: when the Worker is deployed without its secrets, login

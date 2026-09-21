@@ -1,7 +1,8 @@
 import type { APIRoute } from 'astro';
 import { apiHandler, errorResponse, json, readJsonBody } from '@/lib/api';
 import { authenticate, createSession, serializeSessionCookie } from '@/lib/auth';
-import { configErrorMessage, runtimeConfigIssues } from '@/lib/config';
+import { configErrorMessage } from '@/lib/config';
+import { runtimeConfigIssues } from '@/lib/runtime-config';
 import { hit, reset } from '@/lib/rate-limit';
 
 const LOGIN_LIMIT = 10;
