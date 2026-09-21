@@ -235,7 +235,7 @@ PATH="$HOME/.turso:$PATH" turso dev -f local.db -p 8080 &
 
 cp .dev.vars.example .dev.vars   # set SESSION_SECRET and your provider key
 pnpm migrate
-pnpm create-admin you@example.com "a-long-password" "Your Name"
+pnpm create-admin            # credentials come from FLARE_ADMIN_* in .env
 pnpm dev
 ```
 
@@ -244,7 +244,9 @@ The dev server is a daemon and the scripts wrap its lifecycle: `pnpm dev:status`
 `pnpm dev:stop`, or `pnpm dev -- --force` to replace a running instance.
 
 The CLI scripts read `.dev.vars` first and fall back to `.env`. Only `.dev.vars` is read by the
-Worker runtime during `pnpm dev`. `.npmrc` sets a 24 hour minimum release age, so installs skip
+Worker runtime during `pnpm dev`. `.env.example` is the complete credential reference: copy it to
+`.env`, fill in the mailbox login and your provider keys, and `pnpm create-admin` with no arguments
+will seed that login. `.npmrc` sets a 24 hour minimum release age, so installs skip
 packages published in the last day; that keeps local lockfile verification in agreement with CI.
 
 To explore the UI with fictional data:
@@ -370,6 +372,23 @@ Non-secret values live in `wrangler.jsonc` under `vars`:
 | `MAIL_PROVIDER` | `resend` | Backend for the synthesised account (`resend` or `maileroo`) |
 | `MAIL_ACCOUNTS` | *(empty)* | JSON array of accounts, see above |
 | `BLOB_STORE` | `database` | Attachment storage: `database` (default, no R2), `r2` or `auto` |
+
+### Where credentials live
+
+| File | Read by | Holds |
+| --- | --- | --- |
+| `.env` | CLI scripts (`migrate`, `create-admin`, `seed-demo`) | Mailbox login, Turso, provider keys |
+| `.dev.vars` | Worker runtime during `pnpm dev` | Provider keys, Turso, session secret |
+| Wrangler secrets | Deployed Worker | The same values as `.dev.vars` |
+
+The mailbox login comes from `FLARE_ADMIN_EMAIL`, `FLARE_ADMIN_PASSWORD` and `FLARE_ADMIN_NAME`.
+`pnpm create-admin` uses command line arguments when you pass them and those variables otherwise.
+Only the PBKDF2 hash reaches Turso; the Worker never reads the password.
+
+Provider accounts name their credentials by environment variable (`apiKeyEnv`,
+`webhookSecretEnv`), so the same file works for Resend, Maileroo, or both. SMTP relay credentials
+are not read by FLARE, which uses provider HTTP APIs; `.env.example` documents them for use with
+other mail clients.
 
 Secrets go in `.dev.vars` locally and through `wrangler secret put` in production:
 

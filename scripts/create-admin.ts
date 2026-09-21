@@ -1,25 +1,31 @@
 /**
- * Seeds (or updates) the single admin user.
+ * Seeds (or updates) the admin user.
  *
  *   pnpm create-admin you@mail.example.com "correct horse battery staple" "Your Name"
+ *   pnpm create-admin            # uses FLARE_ADMIN_* from .env
  *
- * The display name is optional and is used in the From header of outgoing mail.
- * Reads TURSO_DATABASE_URL / TURSO_AUTH_TOKEN from .dev.vars (or the process
- * environment). There is intentionally no public sign-up page: a self-hosted
- * single-owner mailbox is bootstrapped from the CLI.
+ * Credentials come from the arguments when present, otherwise from
+ * FLARE_ADMIN_EMAIL, FLARE_ADMIN_PASSWORD and FLARE_ADMIN_NAME in .env (or
+ * .dev.vars, or the process environment). The password is hashed with PBKDF2
+ * and only the hash is stored in Turso.
+ *
+ * There is intentionally no public sign-up page: a self-hosted mailbox is
+ * bootstrapped from the CLI.
  */
 import { createDb } from '../src/lib/db-client';
 import { hashPassword } from '../src/lib/password';
 import { loadEnv, requireEnv } from './_shared';
 
 async function main() {
+  const env = loadEnv();
   const args = process.argv.slice(2);
-  const email = (args[0] ?? '').trim().toLowerCase();
-  const password = args[1] ?? '';
-  const displayName = (args[2] ?? '').trim() || null;
+  const email = (args[0] ?? env.FLARE_ADMIN_EMAIL ?? '').trim().toLowerCase();
+  const password = args[1] ?? env.FLARE_ADMIN_PASSWORD ?? '';
+  const displayName = ((args[2] ?? env.FLARE_ADMIN_NAME ?? '').trim() || null);
 
   if (!email || !password) {
-    console.error('Usage: pnpm create-admin <email> <password> ["Display Name"]');
+    console.error('Usage: pnpm create-admin [email] [password] ["Display Name"]');
+    console.error('Falls back to FLARE_ADMIN_EMAIL and FLARE_ADMIN_PASSWORD from .env.');
     process.exit(1);
   }
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
@@ -31,7 +37,6 @@ async function main() {
     process.exit(1);
   }
 
-  const env = loadEnv();
   const url = requireEnv(env, 'TURSO_DATABASE_URL');
   const db = createDb(url, env.TURSO_AUTH_TOKEN ?? '');
   const passwordHash = await hashPassword(password);
